@@ -164,16 +164,18 @@
     let currentMovie = null;
     let isPreviewEnded = false;
 
-    // --- VÉRIFICATION DU PROFIL À CHAQUE CHARGEMENT ---
+    // --- VÉRIFICATION DU PROFIL AU DÉMARRAGE ---
     async function checkUserSession() {
       const savedUser = localStorage.getItem('alibafilm_user');
-      if (!savedUser) return;
+      if (!savedUser) {
+        loadMovies();
+        return;
+      }
 
       currentUser = JSON.parse(savedUser);
-      updateUI(); // Affichage immédiat avec les données en mémoire
+      updateUI(); 
 
       try {
-        // Interroge le serveur en arrière-plan pour voir si le statut a changé (ex: admin qui offre le premium)
         const res = await fetch('/api/auth/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -184,13 +186,14 @@
         if (data.success) {
           currentUser = data.user;
           localStorage.setItem('alibafilm_user', JSON.stringify(currentUser));
-          updateUI(); // Met à jour l'affichage instantanément
+          updateUI(); 
         } else {
           logout();
         }
       } catch (e) {
-        console.log("Vérification silencieuse impossible (hors ligne)");
+        console.log("Vérification silencieuse impossible");
       }
+      loadMovies();
     }
 
     function subscribe() {
@@ -214,13 +217,17 @@
     }
 
     function getMovieCardHTML(m) {
+      // Si l'utilisateur a l'abonnement actif, on masque le badge
+      const isSubscribed = currentUser && currentUser.isPremium;
+      const badgeHTML = isSubscribed ? '' : `<span class="badge ${m.isPremium ? 'premium' : 'free'}">${m.isPremium ? '💎 PREMIUM' : '🟢 GRATUIT'}</span>`;
+
       return `
         <div class="movie-card" onclick="openVideo('${m.id}')">
           <img src="${m.poster || 'https://via.placeholder.com/300x450/222233/ffffff?text=Image+Manquante'}" alt="${m.title}">
           <div class="movie-info">
             <div class="movie-title">${m.title}</div>
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span class="badge ${m.isPremium ? 'premium' : 'free'}">${m.isPremium ? '💎 PREMIUM' : '🟢 GRATUIT'}</span>
+              ${badgeHTML}
             </div>
           </div>
         </div>
@@ -230,10 +237,13 @@
     function renderUI() {
       if (movies.length === 0) return;
       const featured = movies[0];
+      const isSubscribed = currentUser && currentUser.isPremium;
+      const heroBadgeHTML = isSubscribed ? '' : `<span class="badge ${featured.isPremium ? 'premium' : 'free'}" style="margin-bottom:10px;">${featured.isPremium ? '💎 PREMIUM' : '🟢 NOUVEAUTÉ GRATUITE'}</span>`;
+
       document.getElementById('heroSection').innerHTML = `
         <div class="hero" style="background-image: url('${featured.poster || 'https://via.placeholder.com/1200x600/161622/ffffff?text=Image+Manquante'}');">
           <div class="hero-content">
-            <span class="badge ${featured.isPremium ? 'premium' : 'free'}" style="margin-bottom:10px;">${featured.isPremium ? '💎 PREMIUM' : '🟢 NOUVEAUTÉ GRATUITE'}</span>
+            ${heroBadgeHTML}
             <div class="hero-title">${featured.title}</div>
             <div class="hero-meta">
               <span>Catégorie : ${featured.category}</span>
@@ -386,6 +396,8 @@
         document.getElementById('navAuth').style.display = 'block';
         document.getElementById('navUser').style.display = 'none';
       }
+      // Redessine l'interface pour actualiser la présence ou l'absence des badges
+      if (movies.length > 0) renderUI();
     }
 
     function openManageSub() {
@@ -415,9 +427,7 @@
     function showModal(id) { document.getElementById(id).style.display = 'flex'; }
     function hideModal(id) { document.getElementById(id).style.display = 'none'; }
 
-    // --- LANCEMENT AU DÉMARRAGE ---
     checkUserSession();
-    loadMovies();
   </script>
 </body>
 </html>
