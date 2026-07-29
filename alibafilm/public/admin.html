@@ -8,6 +8,7 @@
     h1 { text-align: center; margin-bottom: 40px; background: linear-gradient(135deg, #ff0055, #9d00ff); -webkit-background-clip: text; color: transparent; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; max-width: 1000px; margin: 0 auto; }
     .card { background: #161622; padding: 30px; border-radius: 15px; border: 1px solid #333; }
+    .full-width { grid-column: 1 / -1; }
     h2 { margin-bottom: 20px; font-size: 20px; }
     
     input, select, button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; background: #09090f; color: white; outline: none; box-sizing: border-box; }
@@ -17,8 +18,15 @@
     button:hover { opacity: 0.9; transform: translateY(-2px); }
     label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
     #progressText { display: none; color: #00ff88; font-weight: bold; margin-bottom: 15px; text-align: center; }
+
+    /* Styles pour la liste des films */
+    .movie-item { background: #09090f; padding: 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; margin-bottom: 10px;}
+    .movie-info { display: flex; flex-direction: column; gap: 5px; }
+    .movie-actions { display: flex; gap: 10px; }
+    .movie-actions button { width: auto; margin-bottom: 0; padding: 8px 15px; font-size: 12px; }
+    .btn-edit { background: transparent; border: 1px solid #00ff88; color: #00ff88; }
+    .btn-delete { background: transparent; border: 1px solid #ff0055; color: #ff0055; }
   </style>
-  <!-- Importation de Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -26,18 +34,19 @@
   <h1>Contrôle Principal - ALIBAFILM</h1>
 
   <div style="max-width: 400px; margin: 0 auto 30px auto;">
-    <input type="password" id="adminPass" placeholder="Mot de passe Administrateur" style="border-color: #ff0055;">
+    <input type="password" id="adminPass" placeholder="Mot de passe Administrateur (admba)" style="border-color: #ff0055;">
   </div>
 
   <div class="grid">
-    <!-- Ajouter un contenu -->
-    <div class="card">
-      <h2>Ajouter un Film / Série</h2>
+    <!-- Formulaire Ajouter / Modifier -->
+    <div class="card" id="formCard">
+      <h2 id="formTitle">Ajouter un Film / Série</h2>
       <input type="text" id="title" placeholder="Titre (ex: Inception)">
       <input type="text" id="category" placeholder="Catégorie (ex: Sci-Fi)">
       
-      <label style="color: #ff0055; font-weight: bold;">Fichier Vidéo (Supabase Storage) :</label>
+      <label style="color: #ff0055; font-weight: bold;">Fichier Vidéo (Supabase) :</label>
       <input type="file" id="videoFile" accept="video/*">
+      <small id="videoHint" style="display:none; color:#00ff88; margin-bottom:15px; display:block;">Laisse vide pour garder la vidéo actuelle.</small>
       
       <input type="url" id="poster" placeholder="Lien de l'image de couverture (Affiche)">
       
@@ -48,11 +57,14 @@
       </select>
 
       <label>Durée de l'extrait gratuit (en secondes) :</label>
-      <input type="number" id="previewSeconds" placeholder="Ex: 60 (pour 1 minute)" value="60">
+      <input type="number" id="previewSeconds" placeholder="Ex: 60" value="60">
 
       <div id="progressText">Upload vers Supabase en cours... Patience !</div>
 
-      <button id="uploadBtn">Uploader la vidéo et Publier</button>
+      <div style="display: flex; gap: 10px;">
+        <button id="uploadBtn">Uploader et Publier</button>
+        <button id="cancelEditBtn" onclick="cancelEdit()" style="display: none; background: transparent; border: 1px solid #aaa; color: #aaa;">Annuler</button>
+      </div>
     </div>
 
     <!-- Gérer les utilisateurs -->
@@ -66,53 +78,129 @@
       <input type="number" id="days" placeholder="Ex: 30" value="30">
       <button id="userBtn">Appliquer à l'utilisateur</button>
     </div>
+
+    <!-- Liste des films -->
+    <div class="card full-width">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0;">Catalogue Actuel</h2>
+        <button onclick="loadMovies()" style="width: auto; padding: 8px 15px; margin: 0;">Rafraîchir</button>
+      </div>
+      <div id="movieList"></div>
+    </div>
   </div>
 
   <script>
-    // ⚠️ TES INFOS SUPABASE ⚠️
+    // ⚠️ REMPLACE LA CLÉ PAR TA LONGUE CLÉ (eyJ...) ⚠️
     const supabaseUrl = 'https://onvmmrgnzbargubpkqxk.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9udm1tcmduemJhcmd1YnBrcXhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzMjMwODUsImV4cCI6MjEwMDg5OTA4NX0.LzFuewqBW0mvGy98DfsWOr5eYFuqI-kNrD0foFy2Nhg';
-    
-    // CORRECTION ICI : On utilise "client" pour éviter le conflit
     const client = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-    // Upload et publication du film
+    let currentMovies = [];
+    let editingId = null;
+    let editingVideoUrl = null;
+
+    // --- 1. CHARGER LA LISTE DES FILMS ---
+    async function loadMovies() {
+      const res = await fetch('/api/movies');
+      currentMovies = await res.json();
+      
+      const list = document.getElementById('movieList');
+      if(currentMovies.length === 0) {
+        list.innerHTML = "<p style='color:#aaa;'>Aucun film en ligne pour le moment.</p>";
+        return;
+      }
+      
+      list.innerHTML = currentMovies.map(m => `
+        <div class="movie-item">
+            <div class="movie-info">
+                <strong style="font-size: 18px;">${m.title}</strong>
+                <span style="font-size: 12px; color: #aaa;">${m.category} | ${m.isPremium ? '💎 PREMIUM' : '🟢 GRATUIT'} | ${m.previewSeconds}s d'extrait</span>
+            </div>
+            <div class="movie-actions">
+                <button class="btn-edit" onclick="prepareEdit('${m.id}')">Modifier</button>
+                <button class="btn-delete" onclick="deleteMovie('${m.id}')">Supprimer</button>
+            </div>
+        </div>
+      `).join('');
+    }
+
+    // --- 2. PREPARER LA MODIFICATION ---
+    function prepareEdit(id) {
+      const m = currentMovies.find(x => x.id === id);
+      if(!m) return;
+      
+      editingId = id;
+      editingVideoUrl = m.videoUrl; // On garde en mémoire l'ancienne vidéo
+      
+      document.getElementById('title').value = m.title;
+      document.getElementById('category').value = m.category;
+      document.getElementById('poster').value = m.poster;
+      document.getElementById('isPremium').value = m.isPremium.toString();
+      document.getElementById('previewSeconds').value = m.previewSeconds;
+      
+      // On change l'apparence du formulaire
+      document.getElementById('formTitle').innerText = "✏️ Modifier : " + m.title;
+      document.getElementById('uploadBtn').innerText = "Enregistrer les modifications";
+      document.getElementById('cancelEditBtn').style.display = "block";
+      document.getElementById('videoHint').style.display = "block";
+      
+      window.scrollTo(0, 0); // Remonte tout en haut
+    }
+
+    // --- 3. ANNULER LA MODIFICATION ---
+    function cancelEdit() {
+      editingId = null;
+      editingVideoUrl = null;
+      
+      document.getElementById('title').value = '';
+      document.getElementById('category').value = '';
+      document.getElementById('poster').value = '';
+      document.getElementById('videoFile').value = '';
+      
+      document.getElementById('formTitle').innerText = "Ajouter un Film / Série";
+      document.getElementById('uploadBtn').innerText = "Uploader et Publier";
+      document.getElementById('cancelEditBtn').style.display = "none";
+      document.getElementById('videoHint').style.display = "none";
+    }
+
+    // --- 4. SAUVEGARDER (AJOUT OU MODIFICATION) ---
     document.getElementById('uploadBtn').addEventListener('click', async () => {
       const password = document.getElementById('adminPass').value;
       if (!password) return alert("Saisis le mot de passe admin en haut !");
 
       const fileInput = document.getElementById('videoFile');
-      if (!fileInput.files[0]) return alert("Sélectionne une vidéo sur ton ordinateur !");
       const file = fileInput.files[0];
+
+      // Si c'est un NOUVEAU film, la vidéo est obligatoire
+      if (!editingId && !file) return alert("Sélectionne une vidéo sur ton ordinateur !");
 
       const btn = document.getElementById('uploadBtn');
       const progressText = document.getElementById('progressText');
       
       btn.disabled = true;
       btn.style.opacity = "0.5";
-      progressText.style.display = "block";
 
       try {
-        // 1. Upload du fichier vers le bucket 'movies' de Supabase
-        const fileName = Date.now() + '-' + file.name.replace(/\s+/g, '-');
-        
-        // On utilise "client" ici !
-        const { data, error } = await client.storage
-          .from('movies')
-          .upload(fileName, file);
+        let finalVideoUrl = editingVideoUrl; // Par défaut, on garde la vidéo existante si on modifie
 
-        if (error) throw error;
+        // Si on a mis un NOUVEAU fichier vidéo (soit pour ajouter, soit pour remplacer l'ancienne)
+        if (file) {
+          progressText.style.display = "block";
+          const fileName = Date.now() + '-' + file.name.replace(/\s+/g, '-');
+          
+          const { data, error } = await client.storage.from('movies').upload(fileName, file);
+          if (error) throw error;
 
-        // 2. Récupération du lien public permanent
-        const { data: publicUrlData } = client.storage
-          .from('movies')
-          .getPublicUrl(fileName);
-        
-        const downloadURL = publicUrlData.publicUrl;
+          const { data: publicUrlData } = client.storage.from('movies').getPublicUrl(fileName);
+          finalVideoUrl = publicUrlData.publicUrl;
+        }
 
-        // 3. Envoi des infos finales à ton serveur Render
-        const res = await fetch('/api/admin/movies', {
-          method: 'POST',
+        // Est-ce qu'on ajoute ou on modifie ?
+        const endpoint = editingId ? `/api/admin/movies/${editingId}` : '/api/admin/movies';
+        const method = editingId ? 'PUT' : 'POST';
+
+        const res = await fetch(endpoint, {
+          method: method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             password: password,
@@ -121,26 +209,48 @@
             poster: document.getElementById('poster').value,
             isPremium: document.getElementById('isPremium').value === 'true',
             previewSeconds: document.getElementById('previewSeconds').value,
-            videoUrl: downloadURL // Le lien Supabase !
+            videoUrl: finalVideoUrl
           })
         });
 
         const result = await res.json();
         if(result.success) {
-          alert("Film uploadé sur Supabase et ajouté au site !");
-          document.getElementById('title').value = '';
-          fileInput.value = '';
+          alert(editingId ? "Modifications enregistrées !" : "Film ajouté avec succès !");
+          cancelEdit();
+          loadMovies(); // Met à jour la liste en bas
         } else {
           alert("Erreur Serveur : " + result.error);
         }
       } catch (err) {
-        alert("Erreur pendant l'upload : " + err.message);
+        alert("Erreur : " + err.message);
       } finally {
         btn.disabled = false;
         btn.style.opacity = "1";
         progressText.style.display = "none";
       }
     });
+
+    // --- 5. SUPPRIMER UN FILM ---
+    async function deleteMovie(id) {
+      const password = document.getElementById('adminPass').value;
+      if (!password) return alert("Saisis le mot de passe admin en haut !");
+      if(!confirm("⚠️ Es-tu sûr de vouloir supprimer ce film de la liste ?")) return;
+
+      const res = await fetch(`/api/admin/movies/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      const result = await res.json();
+      if(result.success) {
+        loadMovies();
+      } else {
+        alert("Erreur : " + result.error);
+      }
+    }
+
+    // On charge la liste automatiquement quand on ouvre la page
+    loadMovies();
 
     // Gestion des utilisateurs
     document.getElementById('userBtn').addEventListener('click', async () => {
@@ -151,15 +261,13 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          password,
-          email: document.getElementById('userEmail').value,
+          password, email: document.getElementById('userEmail').value,
           grantPremium: document.getElementById('grantAction').value === 'true',
           days: document.getElementById('days').value
         })
       });
       const result = await res.json();
-      if(result.success) alert("Opération réussie !");
-      else alert("Erreur : " + result.error);
+      if(result.success) alert("Opération réussie !"); else alert("Erreur : " + result.error);
     });
   </script>
 </body>
