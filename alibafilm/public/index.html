@@ -40,7 +40,7 @@
     .btn-primary:hover { opacity: 0.9; transform: scale(1.02); box-shadow: 0 6px 20px rgba(255, 0, 85, 0.6); }
     .btn-secondary { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 50px; backdrop-filter: blur(5px); }
     .btn-secondary:hover { background: rgba(255, 255, 255, 0.2); }
-    .btn-ghost { background: transparent; color: var(--text-muted); text-decoration: underline; border: none; font-size: 14px; margin-top: 15px; }
+    .btn-ghost { background: transparent; color: var(--text-muted); text-decoration: underline; border: none; font-size: 14px; margin-top: 15px; cursor: pointer; }
     .btn-ghost:hover { color: white; }
 
     .container { padding: 40px; }
@@ -136,7 +136,7 @@
       <h2 style="margin-top: 0; margin-bottom: 25px; border:none; padding:0;">Mon Abonnement</h2>
       <div id="subDetails" style="margin-bottom: 20px; font-size: 16px; color: #ddd; line-height: 1.5;"></div>
       <button class="btn-primary" onclick="hideModal('manageSubModal')">Fermer</button>
-      <button class="btn-ghost" onclick="cancelSubscription()">Résilier mon abonnement</button>
+      <div id="cancelContainer"></div>
     </div>
   </div>
 
@@ -238,10 +238,10 @@
       const isSubscribed = currentUser && currentUser.isPremium;
       const heroBadgeHTML = isSubscribed ? '' : `<span class="badge ${featured.isPremium ? 'premium' : 'free'}" style="margin-bottom:10px;">${featured.isPremium ? '💎 PREMIUM' : '🟢 NOUVEAUTÉ GRATUITE'}</span>`;
 
-      // Affiche l'extrait uniquement si le film est payant (isPremium)
-      const metaInfoHTML = featured.isPremium 
+      // Si l'utilisateur est abonné, on cache la durée/extrait sur la bannière principale
+      const metaInfoHTML = (featured.isPremium && !isSubscribed)
         ? `<span>Catégorie : ${featured.category}</span><span>Extrait : ${featured.previewSeconds} sec</span>`
-        : `<span>Catégorie : ${featured.category}</span><span>Film Intégral 100% Gratuit</span>`;
+        : `<span>Catégorie : ${featured.category}</span>`;
 
       document.getElementById('heroSection').innerHTML = `
         <div class="hero" style="background-image: url('${featured.poster || 'https://via.placeholder.com/1200x600/161622/ffffff?text=Image+Manquante'}');">
@@ -308,7 +308,6 @@
 
     videoPlayer.addEventListener('timeupdate', () => {
       if (!currentMovie) return;
-      // Ne bloque que si le film est payant ET que l'utilisateur n'a pas le premium
       if (currentMovie.isPremium && (!currentUser || !currentUser.isPremium)) {
         if (videoPlayer.currentTime >= currentMovie.previewSeconds) {
           triggerPaywall();
@@ -404,6 +403,9 @@
 
     function openManageSub() {
       const subDetails = document.getElementById('subDetails');
+      const cancelContainer = document.getElementById('cancelContainer');
+      
+      // Si l'abonnement a été offert par l'admin (présence de premiumUntil)
       if (currentUser.premiumUntil) {
         const dateObj = new Date(currentUser.premiumUntil);
         const dateStr = dateObj.toLocaleDateString('fr-FR');
@@ -412,18 +414,23 @@
           <p><strong>Origine :</strong> Offert par un Administrateur 🎁</p>
           <p><strong>Valable jusqu'au :</strong> ${dateStr}</p>
         `;
+        cancelContainer.innerHTML = ''; // Pas de résiliation pour un cadeau admin
       } else {
+        // Abonnement standard payant (via Stripe) -> Option de résiliation ajoutée
         subDetails.innerHTML = `
           <p><strong style="color: #00ff88;">✓ Statut :</strong> Actif</p>
-          <p><strong>Origine :</strong> Abonnement Standard</p>
+          <p><strong>Origine :</strong> Abonnement Standard (Stripe)</p>
           <p>Renouvellement automatique activé.</p>
         `;
+        cancelContainer.innerHTML = `<button class="btn-ghost" onclick="cancelSubscription()">Résilier mon abonnement</button>`;
       }
       showModal('manageSubModal');
     }
 
     function cancelSubscription() {
-      alert("Pour des raisons de sécurité, la résiliation doit s'effectuer depuis votre compte Stripe ou en contactant l'administrateur ALIBAFILM.");
+      if (confirm("Voulez-vous vraiment résilier votre abonnement payant ?")) {
+        alert("Pour finaliser la résiliation, veuillez vous connecter à votre portail de facturation Stripe ou contacter le support.");
+      }
     }
 
     function showModal(id) { document.getElementById(id).style.display = 'flex'; }
