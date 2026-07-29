@@ -9,35 +9,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Base de données en mémoire
 let users = [];
-let movies = [
-  {
-    id: "1",
-    title: "Tears of Steel",
-    category: "Action / Sci-Fi",
-    videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-    poster: "https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=2070",
-    isPremium: true,
-    previewSeconds: 60
-  },
-  {
-    id: "2",
-    title: "Big Buck Bunny",
-    category: "Animation",
-    videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    poster: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=2025",
-    isPremium: false,
-    previewSeconds: 0
-  }
-];
+let movies = [];
 
 const ADMIN_PASSWORD = "admba";
 
 // --- API UTILISATEURS ---
 app.post('/api/auth/register', (req, res) => {
   const { email, password } = req.body;
-  if (users.find(u => u.email === email)) {
-    return res.status(400).json({ error: "Cet email est déjà utilisé." });
-  }
+  if (users.find(u => u.email === email)) return res.status(400).json({ error: "Cet email est déjà utilisé." });
   const newUser = { email, password, isPremium: false, premiumUntil: null };
   users.push(newUser);
   res.json({ success: true, user: { email: newUser.email, isPremium: newUser.isPremium } });
@@ -46,15 +25,12 @@ app.post('/api/auth/register', (req, res) => {
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
   const user = users.find(u => u.email === email && u.password === password);
-  
   if (!user) return res.status(401).json({ error: "Identifiants incorrects." });
 
-  // Vérifier si l'abonnement a expiré
   if (user.isPremium && user.premiumUntil && new Date() > new Date(user.premiumUntil)) {
     user.isPremium = false;
     user.premiumUntil = null;
   }
-  
   res.json({ success: true, user: { email: user.email, isPremium: user.isPremium } });
 });
 
@@ -63,7 +39,7 @@ app.get('/api/movies', (req, res) => {
   res.json(movies);
 });
 
-// --- API ADMIN ---
+// Ajouter un film
 app.post('/api/admin/movies', (req, res) => {
   const { password, title, category, videoUrl, poster, isPremium, previewSeconds } = req.body;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
@@ -78,6 +54,36 @@ app.post('/api/admin/movies', (req, res) => {
   res.json({ success: true, movie: newMovie });
 });
 
+// Modifier un film existant
+app.put('/api/admin/movies/:id', (req, res) => {
+  const { password, title, category, videoUrl, poster, isPremium, previewSeconds } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
+
+  const movieIndex = movies.findIndex(m => m.id === req.params.id);
+  if (movieIndex === -1) return res.status(404).json({ error: "Film introuvable" });
+
+  movies[movieIndex] = {
+    ...movies[movieIndex],
+    title, category, videoUrl, poster,
+    isPremium: !!isPremium,
+    previewSeconds: parseInt(previewSeconds) || 60
+  };
+  res.json({ success: true, movie: movies[movieIndex] });
+});
+
+// Supprimer un film
+app.delete('/api/admin/movies/:id', (req, res) => {
+  const { password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
+
+  const movieIndex = movies.findIndex(m => m.id === req.params.id);
+  if (movieIndex === -1) return res.status(404).json({ error: "Film introuvable" });
+
+  movies.splice(movieIndex, 1);
+  res.json({ success: true });
+});
+
+// Gestion des utilisateurs admin
 app.post('/api/admin/users', (req, res) => {
   const { password, email, grantPremium, days } = req.body;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
