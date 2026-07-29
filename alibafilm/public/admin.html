@@ -20,7 +20,7 @@
     #progressText { display: none; color: #00ff88; font-weight: bold; margin-bottom: 15px; text-align: center; }
 
     .movie-item { background: #09090f; padding: 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; margin-bottom: 10px;}
-    .movie-info { display: flex; flexDirection: column; gap: 5px; }
+    .movie-info { display: flex; flex-direction: column; gap: 5px; }
     .movie-actions { display: flex; gap: 10px; }
     .movie-actions button { width: auto; margin-bottom: 0; padding: 8px 15px; font-size: 12px; }
     .btn-edit { background: transparent; border: 1px solid #00ff88; color: #00ff88; }
@@ -39,12 +39,14 @@
   <div class="grid">
     <div class="card" id="formCard">
       <h2 id="formTitle">Ajouter un Film / Série</h2>
-      <input type="text" id="title" placeholder="Titre (ex: Inception)">
-      <input type="text" id="category" placeholder="Catégorie (ex: Sci-Fi)">
+      <input type="text" id="title" placeholder="Titre (ex: HPI Saison 5)">
+      <input type="text" id="category" placeholder="Catégorie (ex: Série)">
       
-      <label style="color: #ff0055; font-weight: bold;">Fichier Vidéo (Supabase) :</label>
+      <label style="color: #ff0055; font-weight: bold;">Lien direct de la Vidéo (Recommandé pour les gros fichiers) :</label>
+      <input type="url" id="manualVideoUrl" placeholder="Colle ici le lien public Supabase de ta vidéo">
+
+      <label style="color: #aaa; font-size: 11px; margin-top: -10px; margin-bottom: 15px;">OU Fichier Vidéo (uniquement pour les petits fichiers) :</label>
       <input type="file" id="videoFile" accept="video/*">
-      <small id="videoHint" style="display:none; color:#00ff88; margin-bottom:15px; display:block;">Laisse vide pour garder la vidéo actuelle.</small>
       
       <input type="url" id="poster" placeholder="Lien de l'image de couverture (Affiche)">
       
@@ -54,16 +56,15 @@
         <option value="false">100% Gratuit</option>
       </select>
 
-      <!-- Conteneur de l'extrait (masqué si gratuit) -->
       <div id="previewContainer">
         <label>Durée de l'extrait gratuit (en secondes) :</label>
         <input type="number" id="previewSeconds" placeholder="Ex: 60" value="60">
       </div>
 
-      <div id="progressText">Upload vers Supabase en cours... Patience !</div>
+      <div id="progressText">Upload en cours...</div>
 
       <div style="display: flex; gap: 10px;">
-        <button id="uploadBtn">Uploader et Publier</button>
+        <button id="uploadBtn">Publier le Film / Série</button>
         <button id="cancelEditBtn" onclick="cancelEdit()" style="display: none; background: transparent; border: 1px solid #aaa; color: #aaa;">Annuler</button>
       </div>
     </div>
@@ -97,11 +98,9 @@
     let editingId = null;
     let editingVideoUrl = null;
 
-    // Masque ou affiche le champ extrait selon le choix
     function togglePreviewField() {
       const isPremium = document.getElementById('isPremium').value === 'true';
-      const container = document.getElementById('previewContainer');
-      container.style.display = isPremium ? 'block' : 'none';
+      document.getElementById('previewContainer').style.display = isPremium ? 'block' : 'none';
     }
 
     async function loadMovies() {
@@ -118,7 +117,7 @@
         <div class="movie-item">
             <div class="movie-info">
                 <strong style="font-size: 18px;">${m.title}</strong>
-                <span style="font-size: 12px; color: #aaa;">${m.category} | ${m.isPremium ? `💎 PREMIUM (${m.previewSeconds}s d'extrait)` : '🟢 100% GRATUIT'}</span>
+                <span style="font-size: 12px; color: #aaa;">${m.category} | ${m.isPremium ? `💎 PREMIUM (${m.previewSeconds}s)` : '🟢 GRATUIT'}</span>
             </div>
             <div class="movie-actions">
                 <button class="btn-edit" onclick="prepareEdit('${m.id}')">Modifier</button>
@@ -138,15 +137,14 @@
       document.getElementById('title').value = m.title;
       document.getElementById('category').value = m.category;
       document.getElementById('poster').value = m.poster;
+      document.getElementById('manualVideoUrl').value = m.videoUrl;
       document.getElementById('isPremium').value = m.isPremium.toString();
       document.getElementById('previewSeconds').value = m.previewSeconds;
       
-      togglePreviewField(); // Met à jour l'affichage du champ extrait
-
+      togglePreviewField();
       document.getElementById('formTitle').innerText = "✏️ Modifier : " + m.title;
       document.getElementById('uploadBtn').innerText = "Enregistrer les modifications";
       document.getElementById('cancelEditBtn').style.display = "block";
-      document.getElementById('videoHint').style.display = "block";
       window.scrollTo(0, 0); 
     }
 
@@ -156,23 +154,25 @@
       document.getElementById('title').value = '';
       document.getElementById('category').value = '';
       document.getElementById('poster').value = '';
+      document.getElementById('manualVideoUrl').value = '';
       document.getElementById('videoFile').value = '';
       document.getElementById('isPremium').value = 'true';
       togglePreviewField();
       
       document.getElementById('formTitle').innerText = "Ajouter un Film / Série";
-      document.getElementById('uploadBtn').innerText = "Uploader et Publier";
+      document.getElementById('uploadBtn').innerText = "Publier le Film / Série";
       document.getElementById('cancelEditBtn').style.display = "none";
-      document.getElementById('videoHint').style.display = "none";
     }
 
     document.getElementById('uploadBtn').addEventListener('click', async () => {
       const password = document.getElementById('adminPass').value;
       if (!password) return alert("Saisis le mot de passe admin en haut !");
 
+      const manualUrl = document.getElementById('manualVideoUrl').value.trim();
       const fileInput = document.getElementById('videoFile');
       const file = fileInput.files[0];
-      if (!editingId && !file) return alert("Sélectionne une vidéo sur ton ordinateur !");
+
+      let finalVideoUrl = manualUrl || editingVideoUrl;
 
       const btn = document.getElementById('uploadBtn');
       const progressText = document.getElementById('progressText');
@@ -180,14 +180,22 @@
       btn.style.opacity = "0.5";
 
       try {
-        let finalVideoUrl = editingVideoUrl; 
-        if (file) {
+        // Si aucun lien direct n'est collé mais qu'un fichier est choisi (petits fichiers)
+        if (!finalVideoUrl && file) {
           progressText.style.display = "block";
           const fileName = Date.now() + '-' + file.name.replace(/\s+/g, '-');
           const { data, error } = await client.storage.from('movies').upload(fileName, file);
           if (error) throw error;
           const { data: publicUrlData } = client.storage.from('movies').getPublicUrl(fileName);
           finalVideoUrl = publicUrlData.publicUrl;
+        }
+
+        if (!finalVideoUrl) {
+          alert("Veuillez coller un lien vidéo ou sélectionner un fichier !");
+          btn.disabled = false;
+          btn.style.opacity = "1";
+          progressText.style.display = "none";
+          return;
         }
 
         const isPrem = document.getElementById('isPremium').value === 'true';
