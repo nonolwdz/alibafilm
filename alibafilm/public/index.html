@@ -36,11 +36,11 @@
     nav button:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-1px); }
     nav button.premium-btn { background: linear-gradient(135deg, var(--primary), var(--secondary)); font-weight: bold; box-shadow: 0 4px 15px rgba(157, 0, 255, 0.3); border: none; }
     
-    .btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; border-radius: 50px; font-weight: bold; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(255, 0, 85, 0.4); border: none; }
+    .btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; border-radius: 50px; font-weight: bold; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(255, 0, 85, 0.4); border: none; width: 100%; padding: 15px; margin-bottom: 10px; }
     .btn-primary:hover { opacity: 0.9; transform: scale(1.02); box-shadow: 0 6px 20px rgba(255, 0, 85, 0.6); }
-    .btn-secondary { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 50px; backdrop-filter: blur(5px); }
+    .btn-secondary { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 50px; backdrop-filter: blur(5px); width: 100%; padding: 15px; margin-bottom: 10px; }
     .btn-secondary:hover { background: rgba(255, 255, 255, 0.2); }
-    .btn-ghost { background: transparent; color: var(--text-muted); text-decoration: underline; border: none; font-size: 14px; margin-top: 15px; cursor: pointer; }
+    .btn-ghost { background: transparent; color: var(--text-muted); text-decoration: underline; border: none; font-size: 14px; margin-top: 15px; cursor: pointer; display: block; width: 100%; text-align: center; }
     .btn-ghost:hover { color: white; }
 
     .container { padding: 40px; }
@@ -74,12 +74,19 @@
     .badge.premium { background: var(--primary); }
     .badge.free { background: #00ff88; color: black; }
 
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); }
-    .modal-content { background: var(--card-bg); padding: 40px; border-radius: 20px; border: 1px solid #333; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; }
-    .modal-content input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #333; background: var(--bg); color: white; outline: none; box-sizing: border-box; }
+    /* DESIGN PROFESSIONNEL DES MODALS ET CROIX DE FERMETURE */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(8px); }
+    .modal-content { background: var(--card-bg); padding: 45px 35px 35px 35px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 400px; text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.6); position: relative; }
+    .modal-content input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #333; background: var(--bg); color: white; outline: none; box-sizing: border-box; font-size: 14px; }
     .modal-content input:focus { border-color: var(--primary); }
-    .modal-content button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 16px; }
-    .close-btn { background: transparent; color: white; border: none; position: absolute; top: 15px; right: 20px; font-size: 28px; width: auto; padding: 0; }
+    
+    .close-btn { 
+      background: rgba(255, 255, 255, 0.08); color: white; border: none; 
+      position: absolute; top: 15px; right: 15px; width: 36px; height: 36px; 
+      border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+      font-size: 18px; cursor: pointer; transition: 0.2s; 
+    }
+    .close-btn:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.05); }
 
     #videoContainer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2000; flex-direction: column; }
     video { width: 100%; height: 100%; background: black; }
@@ -119,9 +126,10 @@
     <div class="grid" id="searchResultsGrid"></div>
   </main>
 
+  <!-- MODAL CONNEXION -->
   <div class="modal" id="authModal">
     <div class="modal-content">
-      <button class="close-btn" onclick="hideModal('authModal')">×</button>
+      <button class="close-btn" onclick="hideModal('authModal')">✕</button>
       <h2 style="margin-top: 0; margin-bottom: 25px; border:none; padding:0;">Mon Compte</h2>
       <input type="email" id="email" placeholder="Adresse Email">
       <input type="password" id="password" placeholder="Mot de passe">
@@ -130,9 +138,10 @@
     </div>
   </div>
 
+  <!-- MODAL GESTION ABONNEMENT -->
   <div class="modal" id="manageSubModal">
     <div class="modal-content">
-      <button class="close-btn" onclick="hideModal('manageSubModal')">×</button>
+      <button class="close-btn" onclick="hideModal('manageSubModal')">✕</button>
       <h2 style="margin-top: 0; margin-bottom: 25px; border:none; padding:0;">Mon Abonnement</h2>
       <div id="subDetails" style="margin-bottom: 20px; font-size: 16px; color: #ddd; line-height: 1.5;"></div>
       <button class="btn-primary" onclick="hideModal('manageSubModal')">Fermer</button>
@@ -140,6 +149,7 @@
     </div>
   </div>
 
+  <!-- LECTEUR VIDÉO -->
   <div id="videoContainer">
     <div class="video-header">
       <h2 id="videoTitle" style="margin: 0; border: none; padding: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.8);"></h2>
@@ -163,6 +173,10 @@
     const videoPlayer = document.getElementById('videoPlayer');
     let currentMovie = null;
     let isPreviewEnded = false;
+    
+    // Identifiant unique pour cette session de navigation (anti-double lecture)
+    const sessionId = 'sess_' + Math.random().toString(36).substring(2) + Date.now();
+    let streamInterval = null;
 
     async function checkUserSession() {
       const savedUser = localStorage.getItem('alibafilm_user');
@@ -238,7 +252,6 @@
       const isSubscribed = currentUser && currentUser.isPremium;
       const heroBadgeHTML = isSubscribed ? '' : `<span class="badge ${featured.isPremium ? 'premium' : 'free'}" style="margin-bottom:10px;">${featured.isPremium ? '💎 PREMIUM' : '🟢 NOUVEAUTÉ GRATUITE'}</span>`;
 
-      // Si l'utilisateur est abonné, on cache la durée/extrait sur la bannière principale
       const metaInfoHTML = (featured.isPremium && !isSubscribed)
         ? `<span>Catégorie : ${featured.category}</span><span>Extrait : ${featured.previewSeconds} sec</span>`
         : `<span>Catégorie : ${featured.category}</span>`;
@@ -284,9 +297,36 @@
       }
     }
 
-    function openVideo(id) {
+    // --- GESTION DE LA LECTURE ET SÉCURITÉ CONCURRENTES ---
+    async function openVideo(id) {
       currentMovie = movies.find(m => m.id === id);
       if (!currentMovie) return;
+
+      // Si l'utilisateur est connecté, on enregistre cette session de lecture auprès du serveur
+      if (currentUser) {
+        await fetch('/api/stream/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: currentUser.email, sessionId })
+        });
+
+        // Vérification en continu (toutes les 4 secondes) qu'aucune autre lecture n'a pris le relais
+        if (streamInterval) clearInterval(streamInterval);
+        streamInterval = setInterval(async () => {
+          try {
+            const res = await fetch('/api/stream/check', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: currentUser.email, sessionId })
+            });
+            const data = await res.json();
+            if (!data.allowed) {
+              alert("⚠️ Une autre lecture est en cours sur un autre appareil ou onglet avec ce compte.");
+              closeVideo();
+            }
+          } catch(e) {}
+        }, 4000);
+      }
 
       isPreviewEnded = false;
       document.getElementById('videoTitle').innerText = currentMovie.title;
@@ -299,6 +339,10 @@
     }
 
     function closeVideo() {
+      if (streamInterval) {
+        clearInterval(streamInterval);
+        streamInterval = null;
+      }
       videoPlayer.pause();
       videoPlayer.src = "";
       document.getElementById('videoContainer').style.display = 'none';
@@ -405,7 +449,6 @@
       const subDetails = document.getElementById('subDetails');
       const cancelContainer = document.getElementById('cancelContainer');
       
-      // Si l'abonnement a été offert par l'admin (présence de premiumUntil)
       if (currentUser.premiumUntil) {
         const dateObj = new Date(currentUser.premiumUntil);
         const dateStr = dateObj.toLocaleDateString('fr-FR');
@@ -414,9 +457,8 @@
           <p><strong>Origine :</strong> Offert par un Administrateur 🎁</p>
           <p><strong>Valable jusqu'au :</strong> ${dateStr}</p>
         `;
-        cancelContainer.innerHTML = ''; // Pas de résiliation pour un cadeau admin
+        cancelContainer.innerHTML = ''; 
       } else {
-        // Abonnement standard payant (via Stripe) -> Option de résiliation ajoutée
         subDetails.innerHTML = `
           <p><strong style="color: #00ff88;">✓ Statut :</strong> Actif</p>
           <p><strong>Origine :</strong> Abonnement Standard (Stripe)</p>
