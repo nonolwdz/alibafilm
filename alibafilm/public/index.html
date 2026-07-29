@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ALIBAFILM - Streaming Modern</title>
+  <style>
+    :root {
+      --bg-color: #0b0f19;
+      --card-bg: #151c2e;
+      --accent: #ff2a5f;
+      --accent-gradient: linear-gradient(135deg, #ff2a5f 0%, #7928ca 100%);
+      --text: #ffffff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text); padding-bottom: 50px; }
+    
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 40px; background: rgba(11, 15, 25, 0.9); position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px);
+    }
+    .logo { font-size: 28px; font-weight: 900; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .btn-premium { background: var(--accent-gradient); border: none; padding: 10px 20px; color: white; font-weight: bold; border-radius: 20px; cursor: pointer; }
+    
+    .hero { text-align: center; padding: 60px 20px; background: radial-gradient(circle at center, #2d124d 0%, #0b0f19 70%); }
+    .hero h1 { font-size: 42px; margin-bottom: 15px; }
+    
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; margin-top: 20px; }
+    
+    .movie-card { background: var(--card-bg); border-radius: 12px; overflow: hidden; transition: transform 0.3s; cursor: pointer; border: 1px solid #252e48; }
+    .movie-card:hover { transform: translateY(-5px); border-color: var(--accent); }
+    .movie-card img { width: 100%; height: 300px; object-fit: cover; }
+    .movie-info { padding: 15px; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-bottom: 8px; }
+    .badge-premium { background: var(--accent); }
+    .badge-free { background: #00d26a; }
+
+    /* Modal Lecteur Vidéo */
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-content { background: var(--card-bg); width: 90%; max-width: 800px; border-radius: 12px; overflow: hidden; position: relative; }
+    video { width: 100%; display: block; }
+    .close-btn { position: absolute; top: 10px; right: 15px; font-size: 24px; color: white; cursor: pointer; z-index: 10; }
+    
+    .paywall-overlay { display: none; padding: 40px; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">ALIBAFILM</div>
+    <div>
+      <span id="userStatus" style="margin-right: 15px; font-size: 14px;">Statut : **Gratuit**</span>
+      <button class="btn-premium" onclick="subscribeStripe()">Passer à ALIBAPREMIUM (3.99€)</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h1>Tous tes films & séries en HD</h1>
+    <p>Profite des nouveautés exclusive sur ALIBAFILM.</p>
+  </section>
+
+  <div class="container">
+    <h2>Catalogue</h2>
+    <div class="grid" id="movieGrid"></div>
+  </div>
+
+  <!-- Modal Vidéo -->
+  <div class="modal" id="videoModal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closePlayer()">&times;</span>
+      <div id="playerContainer">
+        <video id="videoPlayer" controls></video>
+      </div>
+      <div class="paywall-overlay" id="paywall">
+        <h2>Aperçu terminé !</h2>
+        <p style="margin: 15px 0;">Abonne-toi à **ALIBAPREMIUM** (3.99€) pour regarder la suite de ce film sans limite.</p>
+        <button class="btn-premium" onclick="subscribeStripe()">Souscrire maintenant</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isUserPremium = false; // Par défaut gratuit
+    let currentMovie = null;
+
+    async function loadMovies() {
+      const res = await fetch('/api/movies');
+      const movies = await res.json();
+      const grid = document.getElementById('movieGrid');
+      grid.innerHTML = movies.map(m => `
+        <div class="movie-card" onclick="openPlayer('${m.id}')">
+          <img src="${m.poster}" alt="${m.title}">
+          <div class="movie-info">
+            <span class="badge ${m.isPremium ? 'badge-premium' : 'badge-free'}">
+              ${m.isPremium ? 'ALIBAPREMIUM' : 'GRATUIT'}
+            </span>
+            <h3>${m.title}</h3>
+            <p style="color: #a0aec0; font-size: 12px; margin-top: 5px;">${m.category}</p>
+          </div>
+        </div>
+      `).join('');
+      window.moviesList = movies;
+    }
+
+    function openPlayer(id) {
+      currentMovie = window.moviesList.find(m => m.id === id);
+      const modal = document.getElementById('videoModal');
+      const player = document.getElementById('videoPlayer');
+      const paywall = document.getElementById('paywall');
+      
+      paywall.style.display = 'none';
+      player.style.display = 'block';
+      player.src = currentMovie.videoUrl;
+      modal.style.display = 'flex';
+      player.play();
+
+      // Gestion du découpage automatique (Limite 1 min ou durée configurée)
+      player.ontimeupdate = () => {
+        if (currentMovie.isPremium && !isUserPremium) {
+          if (player.currentTime >= currentMovie.previewSeconds) {
+            player.pause();
+            player.style.display = 'none';
+            paywall.style.display = 'block';
+          }
+        }
+      };
+    }
+
+    function closePlayer() {
+      const modal = document.getElementById('videoModal');
+      const player = document.getElementById('videoPlayer');
+      player.pause();
+      modal.style.display = 'none';
+    }
+
+    function subscribeStripe() {
+      alert("Redirection vers la page de paiement Stripe (3.99€)...");
+      // Ici tu mettras ton lien Stripe Checkout direct
+    }
+
+    loadMovies();
+  </script>
+</body>
+</html>
