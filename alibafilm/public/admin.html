@@ -10,19 +10,23 @@
     .card { background: #161622; padding: 30px; border-radius: 15px; border: 1px solid #333; }
     h2 { margin-bottom: 20px; font-size: 20px; }
     
-    input, select, button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; background: #09090f; color: white; outline: none; }
+    input, select, button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; background: #09090f; color: white; outline: none; box-sizing: border-box; }
+    input[type="file"] { background: #222233; cursor: pointer; border-color: #ff0055; }
     input:focus, select:focus { border-color: #ff0055; }
     button { background: linear-gradient(135deg, #ff0055, #9d00ff); border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
     button:hover { opacity: 0.9; transform: translateY(-2px); }
     label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
+    #progressText { display: none; color: #00ff88; font-weight: bold; margin-bottom: 15px; text-align: center; }
   </style>
+  <!-- Importation de Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
   <h1>Contrôle Principal - ALIBAFILM</h1>
 
   <div style="max-width: 400px; margin: 0 auto 30px auto;">
-    <input type="password" id="adminPass" placeholder="Mot de passe Administrateur (admba)" style="border-color: #ff0055;">
+    <input type="password" id="adminPass" placeholder="Mot de passe Administrateur" style="border-color: #ff0055;">
   </div>
 
   <div class="grid">
@@ -31,8 +35,11 @@
       <h2>Ajouter un Film / Série</h2>
       <input type="text" id="title" placeholder="Titre (ex: Inception)">
       <input type="text" id="category" placeholder="Catégorie (ex: Sci-Fi)">
-      <input type="url" id="videoUrl" placeholder="Lien de la vidéo MP4">
-      <input type="url" id="poster" placeholder="Lien de l'image de couverture">
+      
+      <label style="color: #ff0055; font-weight: bold;">Fichier Vidéo (Supabase Storage) :</label>
+      <input type="file" id="videoFile" accept="video/*">
+      
+      <input type="url" id="poster" placeholder="Lien de l'image de couverture (Affiche)">
       
       <label>Statut de l'abonnement :</label>
       <select id="isPremium">
@@ -40,66 +47,116 @@
         <option value="false">100% Gratuit</option>
       </select>
 
-      <label>Durée de l'extrait gratuit pour ce film (en secondes) :</label>
+      <label>Durée de l'extrait gratuit (en secondes) :</label>
       <input type="number" id="previewSeconds" placeholder="Ex: 60 (pour 1 minute)" value="60">
 
-      <button onclick="addMovie()">Publier sur le site</button>
+      <div id="progressText">Upload vers Supabase en cours... Patience !</div>
+
+      <button id="uploadBtn">Uploader la vidéo et Publier</button>
     </div>
 
     <!-- Gérer les utilisateurs -->
     <div class="card">
       <h2>Gérer les abonnements Utilisateurs</h2>
       <input type="email" id="userEmail" placeholder="Email du compte utilisateur">
-      
-      <label>Action :</label>
       <select id="grantAction">
         <option value="true">Offrir des jours Premium</option>
         <option value="false">Révoquer / Enlever le Premium</option>
       </select>
-
-      <label>Nombre de jours à offrir :</label>
       <input type="number" id="days" placeholder="Ex: 30" value="30">
-
-      <button onclick="manageUser()">Appliquer à l'utilisateur</button>
+      <button id="userBtn">Appliquer à l'utilisateur</button>
     </div>
   </div>
 
   <script>
-    async function apiCall(endpoint, data) {
+    // ⚠️ REMPLACE PAR TES INFOS SUPABASE ICI ⚠️
+    const supabaseUrl = 'Thttps://onvmmrgnzbargubpkqxk.supabase.co';
+    const supabaseKey = 'sb_publishable_wCVYF1QJeywAPq4YVAJxUw_z__HXmXo';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    // Upload et publication du film
+    document.getElementById('uploadBtn').addEventListener('click', async () => {
+      const password = document.getElementById('adminPass').value;
+      if (!password) return alert("Saisis le mot de passe admin en haut !");
+
+      const fileInput = document.getElementById('videoFile');
+      if (!fileInput.files[0]) return alert("Sélectionne une vidéo sur ton ordinateur !");
+      const file = fileInput.files[0];
+
+      const btn = document.getElementById('uploadBtn');
+      const progressText = document.getElementById('progressText');
+      
+      btn.disabled = true;
+      btn.style.opacity = "0.5";
+      progressText.style.display = "block";
+
+      try {
+        // 1. Upload du fichier vers le bucket 'movies' de Supabase
+        const fileName = Date.now() + '-' + file.name.replace(/\s+/g, '-');
+        const { data, error } = await supabase.storage
+          .from('movies')
+          .upload(fileName, file);
+
+        if (error) throw error;
+
+        // 2. Récupération du lien public permanent
+        const { data: publicUrlData } = supabase.storage
+          .from('movies')
+          .getPublicUrl(fileName);
+        
+        const downloadURL = publicUrlData.publicUrl;
+
+        // 3. Envoi des infos finales à ton serveur Render
+        const res = await fetch('/api/admin/movies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            password: password,
+            title: document.getElementById('title').value,
+            category: document.getElementById('category').value,
+            poster: document.getElementById('poster').value,
+            isPremium: document.getElementById('isPremium').value === 'true',
+            previewSeconds: document.getElementById('previewSeconds').value,
+            videoUrl: downloadURL // Le lien Supabase !
+          })
+        });
+
+        const result = await res.json();
+        if(result.success) {
+          alert("Film uploadé sur Supabase et ajouté au site !");
+          document.getElementById('title').value = '';
+          fileInput.value = '';
+        } else {
+          alert("Erreur Serveur : " + result.error);
+        }
+      } catch (err) {
+        alert("Erreur pendant l'upload : " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        progressText.style.display = "none";
+      }
+    });
+
+    // Gestion des utilisateurs
+    document.getElementById('userBtn').addEventListener('click', async () => {
       const password = document.getElementById('adminPass').value;
       if (!password) return alert("Saisis le mot de passe admin en haut !");
       
-      const res = await fetch(endpoint, {
+      const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, ...data })
+        body: JSON.stringify({
+          password,
+          email: document.getElementById('userEmail').value,
+          grantPremium: document.getElementById('grantAction').value === 'true',
+          days: document.getElementById('days').value
+        })
       });
       const result = await res.json();
-      if(result.success) {
-        alert("Opération réussie !");
-      } else {
-        alert("Erreur : " + result.error);
-      }
-    }
-
-    function addMovie() {
-      apiCall('/api/admin/movies', {
-        title: document.getElementById('title').value,
-        category: document.getElementById('category').value,
-        videoUrl: document.getElementById('videoUrl').value,
-        poster: document.getElementById('poster').value,
-        isPremium: document.getElementById('isPremium').value === 'true',
-        previewSeconds: document.getElementById('previewSeconds').value
-      });
-    }
-
-    function manageUser() {
-      apiCall('/api/admin/users', {
-        email: document.getElementById('userEmail').value,
-        grantPremium: document.getElementById('grantAction').value === 'true',
-        days: document.getElementById('days').value
-      });
-    }
+      if(result.success) alert("Opération réussie !");
+      else alert("Erreur : " + result.error);
+    });
   </script>
 </body>
 </html>
