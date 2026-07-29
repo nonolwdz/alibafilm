@@ -76,7 +76,7 @@
 
     /* DESIGN PROFESSIONNEL DES MODALS ET CROIX DE FERMETURE */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(8px); }
-    .modal-content { background: var(--card-bg); padding: 45px 35px 35px 35px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 400px; text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.6); position: relative; }
+    .modal-content { background: var(--card-bg); padding: 45px 35px 35px 35px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 420px; text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.6); position: relative; max-height: 90vh; overflow-y: auto; }
     .modal-content input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #333; background: var(--bg); color: white; outline: none; box-sizing: border-box; font-size: 14px; }
     .modal-content input:focus { border-color: var(--primary); }
     
@@ -84,9 +84,12 @@
       background: rgba(255, 255, 255, 0.08); color: white; border: none; 
       position: absolute; top: 15px; right: 15px; width: 36px; height: 36px; 
       border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-      font-size: 18px; cursor: pointer; transition: 0.2s; 
+      font-size: 18px; cursor: pointer; transition: 0.2s; z-index: 10;
     }
     .close-btn:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.05); }
+
+    /* POP-UP CONCURRENT STREAM BIEN TRAVAILLÉ */
+    #streamConflictModal .modal-content { border-color: var(--primary); }
 
     #videoContainer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2000; flex-direction: column; }
     video { width: 100%; height: 100%; background: black; }
@@ -138,14 +141,36 @@
     </div>
   </div>
 
-  <!-- MODAL GESTION ABONNEMENT -->
+  <!-- MODAL GESTION COMPTE & ABONNEMENT -->
   <div class="modal" id="manageSubModal">
     <div class="modal-content">
       <button class="close-btn" onclick="hideModal('manageSubModal')">✕</button>
-      <h2 style="margin-top: 0; margin-bottom: 25px; border:none; padding:0;">Mon Abonnement</h2>
-      <div id="subDetails" style="margin-bottom: 20px; font-size: 16px; color: #ddd; line-height: 1.5;"></div>
+      <h2 style="margin-top: 0; margin-bottom: 20px; border:none; padding:0;">Mon Compte</h2>
+      
+      <div id="subDetails" style="margin-bottom: 20px; font-size: 15px; color: #ddd; line-height: 1.5; text-align: left; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px;"></div>
+
+      <!-- SECTION APPAREILS CONNECTÉS -->
+      <h3 style="font-size: 16px; margin-bottom: 10px; text-align: left; color: var(--text-muted);">Appareil connecté actif :</h3>
+      <div id="devicesList" style="margin-bottom: 20px; font-size: 14px; text-align: left; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; color: #00ff88;"></div>
+
+      <!-- FORMULAIRE MODIFICATION MOT DE PASSE -->
+      <h3 style="font-size: 16px; margin-bottom: 10px; text-align: left; color: var(--text-muted);">Modifier mon mot de passe :</h3>
+      <input type="password" id="oldPassword" placeholder="Ancien mot de passe">
+      <input type="password" id="newPassword" placeholder="Nouveau mot de passe">
+      <button class="btn-secondary" style="margin-bottom: 15px;" onclick="changePassword()">Mettre à jour le mot de passe</button>
+
       <button class="btn-primary" onclick="hideModal('manageSubModal')">Fermer</button>
       <div id="cancelContainer"></div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFLIT DE LECTURE (DOUBLE CONNEXION) -->
+  <div class="modal" id="streamConflictModal">
+    <div class="modal-content">
+      <h2 style="color: var(--primary); border:none; margin-bottom: 10px;">⚠️ Lecture interrompue</h2>
+      <p style="font-size: 15px; color: #ddd; margin-bottom: 25px; line-height: 1.5;">Une autre lecture a été lancée avec votre compte sur un autre appareil ou onglet. Si vous n'êtes pas à l'origine de cette action, sécurisez votre compte immédiatement.</p>
+      <button class="btn-primary" onclick="openPasswordChangeFromConflict()">Modifier mon mot de passe</button>
+      <button class="btn-ghost" onclick="closeStreamConflict()">Fermer</button>
     </div>
   </div>
 
@@ -174,7 +199,6 @@
     let currentMovie = null;
     let isPreviewEnded = false;
     
-    // Identifiant unique pour cette session de navigation (anti-double lecture)
     const sessionId = 'sess_' + Math.random().toString(36).substring(2) + Date.now();
     let streamInterval = null;
 
@@ -302,7 +326,6 @@
       currentMovie = movies.find(m => m.id === id);
       if (!currentMovie) return;
 
-      // Si l'utilisateur est connecté, on enregistre cette session de lecture auprès du serveur
       if (currentUser) {
         await fetch('/api/stream/start', {
           method: 'POST',
@@ -310,7 +333,6 @@
           body: JSON.stringify({ email: currentUser.email, sessionId })
         });
 
-        // Vérification en continu (toutes les 4 secondes) qu'aucune autre lecture n'a pris le relais
         if (streamInterval) clearInterval(streamInterval);
         streamInterval = setInterval(async () => {
           try {
@@ -321,8 +343,8 @@
             });
             const data = await res.json();
             if (!data.allowed) {
-              alert("⚠️ Une autre lecture est en cours sur un autre appareil ou onglet avec ce compte.");
               closeVideo();
+              showModal('streamConflictModal');
             }
           } catch(e) {}
         }, 4000);
@@ -348,6 +370,15 @@
       document.getElementById('videoContainer').style.display = 'none';
       document.getElementById('paywall').style.display = 'none';
       currentMovie = null;
+    }
+
+    function closeStreamConflict() {
+      hideModal('streamConflictModal');
+    }
+
+    function openPasswordChangeFromConflict() {
+      hideModal('streamConflictModal');
+      openManageSub();
     }
 
     videoPlayer.addEventListener('timeupdate', () => {
@@ -433,10 +464,13 @@
 
         if (currentUser.isPremium) {
           status.innerHTML = `👤 ${currentUser.email} <span style="color: #00ff88;">(💎 PREMIUM)</span>`;
-          actionBtnContainer.innerHTML = `<button onclick="openManageSub()">Gérer l'abonnement</button>`;
+          actionBtnContainer.innerHTML = `<button onclick="openManageSub()">Mon Compte</button>`;
         } else {
           status.innerHTML = `👤 ${currentUser.email} <span style="color: #aaa;">(Gratuit)</span>`;
-          actionBtnContainer.innerHTML = `<button class="premium-btn" onclick="subscribe()">Devenir ALIBAPREMIUM</button>`;
+          actionBtnContainer.innerHTML = `
+            <button onclick="openManageSub()">Mon Compte</button>
+            <button class="premium-btn" onclick="subscribe()">Devenir ALIBAPREMIUM</button>
+          `;
         }
       } else {
         document.getElementById('navAuth').style.display = 'block';
@@ -445,28 +479,87 @@
       if (movies.length > 0) renderUI();
     }
 
-    function openManageSub() {
+    // --- GESTION DE COMPTE ET APPAREILS ---
+    async function openManageSub() {
       const subDetails = document.getElementById('subDetails');
       const cancelContainer = document.getElementById('cancelContainer');
-      
-      if (currentUser.premiumUntil) {
-        const dateObj = new Date(currentUser.premiumUntil);
-        const dateStr = dateObj.toLocaleDateString('fr-FR');
-        subDetails.innerHTML = `
-          <p><strong style="color: #00ff88;">✓ Statut :</strong> Actif</p>
-          <p><strong>Origine :</strong> Offert par un Administrateur 🎁</p>
-          <p><strong>Valable jusqu'au :</strong> ${dateStr}</p>
-        `;
-        cancelContainer.innerHTML = ''; 
+      const devicesList = document.getElementById('devicesList');
+
+      // Statut abonnement
+      if (currentUser.isPremium) {
+        if (currentUser.premiumUntil) {
+          const dateObj = new Date(currentUser.premiumUntil);
+          const dateStr = dateObj.toLocaleDateString('fr-FR');
+          subDetails.innerHTML = `
+            <p style="margin:5px 0;"><strong style="color: #00ff88;">✓ Statut :</strong> ALIBAPREMIUM Actif</p>
+            <p style="margin:5px 0;"><strong>Origine :</strong> Offert par un Administrateur 🎁</p>
+            <p style="margin:5px 0;"><strong>Valable jusqu'au :</strong> ${dateStr}</p>
+          `;
+          cancelContainer.innerHTML = '';
+        } else {
+          subDetails.innerHTML = `
+            <p style="margin:5px 0;"><strong style="color: #00ff88;">✓ Statut :</strong> ALIBAPREMIUM Actif</p>
+            <p style="margin:5px 0;"><strong>Origine :</strong> Abonnement Standard (Stripe)</p>
+          `;
+          cancelContainer.innerHTML = `<button class="btn-ghost" onclick="cancelSubscription()">Résilier mon abonnement</button>`;
+        }
       } else {
         subDetails.innerHTML = `
-          <p><strong style="color: #00ff88;">✓ Statut :</strong> Actif</p>
-          <p><strong>Origine :</strong> Abonnement Standard (Stripe)</p>
-          <p>Renouvellement automatique activé.</p>
+          <p style="margin:5px 0;"><strong style="color: var(--primary);">Compte Gratuit</strong></p>
+          <p style="margin:5px 0; font-size:13px; color:#aaa;">Passez au statut Premium pour débloquer l'intégralité du catalogue sans aucune limite.</p>
         `;
-        cancelContainer.innerHTML = `<button class="btn-ghost" onclick="cancelSubscription()">Résilier mon abonnement</button>`;
+        cancelContainer.innerHTML = '';
       }
+
+      // Chargement des appareils connectés
+      devicesList.innerHTML = "Chargement...";
+      try {
+        const res = await fetch('/api/auth/devices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: currentUser.email })
+        });
+        const data = await res.json();
+        if (data.devices && data.devices.length > 0) {
+          devicesList.innerHTML = data.devices.map(d => `📱 ${d.device} (Actif à ${d.time})`).join('<br>');
+        } else {
+          devicesList.innerHTML = "Aucun flux actif en ce moment.";
+        }
+      } catch(e) {
+        devicesList.innerHTML = "Impossible de charger les appareils.";
+      }
+
+      document.getElementById('oldPassword').value = '';
+      document.getElementById('newPassword').value = '';
       showModal('manageSubModal');
+    }
+
+    async function changePassword() {
+      const oldPassword = document.getElementById('oldPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+
+      if (!oldPassword || !newPassword) {
+        return alert("Veuillez remplir tous les champs de mot de passe.");
+      }
+
+      try {
+        const res = await fetch('/api/auth/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: currentUser.email, oldPassword, newPassword })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert("Mot de passe mis à jour avec succès !");
+          currentUser.password = newPassword;
+          localStorage.setItem('alibafilm_user', JSON.stringify(currentUser));
+          hideModal('manageSubModal');
+        } else {
+          alert(data.error || "Erreur lors du changement.");
+        }
+      } catch (err) {
+        alert("Erreur réseau.");
+      }
     }
 
     function cancelSubscription() {
