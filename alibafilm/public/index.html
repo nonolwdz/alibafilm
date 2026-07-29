@@ -1,234 +1,110 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ALIBAFILM - Le Streaming Réinventé</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;900&display=swap');
-    
-    :root {
-      --bg: #09090f;
-      --card: #161622;
-      --text: #ffffff;
-      --accent: #ff0055;
-      --accent-grad: linear-gradient(135deg, #ff0055, #9d00ff);
-      --glass: rgba(22, 22, 34, 0.7);
-    }
+const express = require('express');
+const path = require('path');
+const cors = require('cors');
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-    body { background-color: var(--bg); color: var(--text); overflow-x: hidden; }
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-    /* Header */
-    header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 20px 5%; background: var(--glass);
-      backdrop-filter: blur(15px); position: fixed; width: 100%; top: 0; z-index: 100;
-    }
-    .logo { font-size: 32px; font-weight: 900; background: var(--accent-grad); -webkit-background-clip: text; color: transparent; letter-spacing: -1px; }
-    .nav-actions { display: flex; align-items: center; gap: 15px; }
-    
-    button { cursor: pointer; border: none; font-weight: 700; border-radius: 8px; transition: transform 0.2s; }
-    button:hover { transform: scale(1.05); }
-    .btn-primary { background: var(--accent-grad); color: white; padding: 10px 24px; }
-    .btn-outline { background: transparent; border: 2px solid #ff0055; color: white; padding: 8px 20px; }
+// Base de données en mémoire
+let users = [];
+let movies = [];
 
-    /* Hero Section */
-    .hero {
-      height: 70vh; display: flex; flex-direction: column; justify-content: center;
-      padding: 0 5%; margin-top: 50px;
-      background: radial-gradient(circle at top right, rgba(157, 0, 255, 0.2), transparent 50%),
-                  radial-gradient(circle at bottom left, rgba(255, 0, 85, 0.2), transparent 50%);
-    }
-    .hero h1 { font-size: 5vw; line-height: 1.1; margin-bottom: 20px; }
-    .hero p { font-size: 1.2rem; opacity: 0.8; max-width: 600px; margin-bottom: 30px; }
+const ADMIN_PASSWORD = "admba";
 
-    /* Catalogue */
-    .container { padding: 40px 5%; }
-    .container h2 { font-size: 28px; margin-bottom: 20px; border-left: 5px solid var(--accent); padding-left: 10px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 25px; }
-    
-    .card { background: var(--card); border-radius: 15px; overflow: hidden; position: relative; transition: 0.3s; cursor: pointer; }
-    .card:hover { transform: translateY(-10px); box-shadow: 0 15px 30px rgba(255,0,85,0.2); }
-    .card img { width: 100%; height: 350px; object-fit: cover; }
-    .card-info { padding: 15px; }
-    .badge { position: absolute; top: 15px; right: 15px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-    .badge-premium { background: var(--accent-grad); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-    .badge-free { background: rgba(0, 255, 136, 0.9); color: #000; }
+// --- API UTILISATEURS ---
+app.post('/api/auth/register', (req, res) => {
+  const { email, password } = req.body;
+  if (users.find(u => u.email === email)) return res.status(400).json({ error: "Cet email est déjà utilisé." });
+  const newUser = { email, password, isPremium: false, premiumUntil: null };
+  users.push(newUser);
+  res.json({ success: true, user: { email: newUser.email, isPremium: newUser.isPremium } });
+});
 
-    /* Auth & Video Modals */
-    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
-    .modal-content { background: var(--card); padding: 40px; border-radius: 20px; width: 90%; max-width: 400px; position: relative; text-align: center; border: 1px solid rgba(255,0,85,0.3); }
-    .modal-content input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: none; background: #222233; color: white; outline: none; }
-    .close { position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; }
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body;
+  const user = users.find(u => u.email === email && u.password === password);
+  if (!user) return res.status(401).json({ error: "Identifiants incorrects." });
 
-    .video-container { width: 90%; max-width: 1000px; background: #000; border-radius: 15px; overflow: hidden; position: relative; display: flex; flex-direction: column;}
-    video { width: 100%; max-height: 80vh; outline: none; }
-    
-    /* Paywall / Decoy */
-    .paywall { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.95); flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 30px; z-index: 10; }
-    .paywall h3 { font-size: 32px; color: var(--accent); margin-bottom: 15px; }
-    .paywall p { font-size: 18px; margin-bottom: 25px; opacity: 0.9; }
-  </style>
-</head>
-<body>
-
-  <header>
-    <div class="logo">ALIBAFILM</div>
-    <div class="nav-actions" id="navState">
-      <button class="btn-outline" onclick="showModal('authModal')">Connexion</button>
-    </div>
-  </header>
-
-  <section class="hero">
-    <h1>Le meilleur du cinéma,<br>sélectionné par nous.</h1>
-    <p>Rejoins ALIBAFILM et accède à un catalogue unique. Regarde les extraits gratuitement ou passe Premium pour un accès illimité.</p>
-    <div><button class="btn-primary" onclick="subscribe()">Devenir ALIBAPREMIUM (3.99€)</button></div>
-  </section>
-
-  <div class="container">
-    <h2>À l'affiche</h2>
-    <div class="grid" id="catalogue"></div>
-  </div>
-
-  <!-- Authentification -->
-  <div class="modal" id="authModal">
-    <div class="modal-content">
-      <span class="close" onclick="closeModal('authModal')">&times;</span>
-      <h2 style="margin-bottom: 20px;">Rejoindre ALIBAFILM</h2>
-      <input type="email" id="email" placeholder="Adresse Email">
-      <input type="password" id="password" placeholder="Mot de passe">
-      <button class="btn-primary" style="width: 100%; margin-bottom: 10px;" onclick="auth('login')">Se connecter</button>
-      <button class="btn-outline" style="width: 100%;" onclick="auth('register')">Créer un compte</button>
-    </div>
-  </div>
-
-  <!-- Lecteur Vidéo & Paywall -->
-  <div class="modal" id="videoModal">
-    <div class="video-container">
-      <span class="close" onclick="closeVideo()" style="color:white; z-index: 20; top: 10px; right: 15px;">&times;</span>
-      <video id="player" controls controlsList="nodownload"></video>
-      <div class="paywall" id="paywall">
-        <h3>Fin de l'extrait gratuit</h3>
-        <p>Abonne-toi à ALIBAPREMIUM pour débloquer la suite de ce contenu instantanément.</p>
-        <button class="btn-primary" onclick="subscribe()" style="font-size: 18px; padding: 15px 30px;">S'abonner pour 3.99€ / mois</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    let currentUser = null;
-    let movies = [];
-    let currentMovie = null;
-    const player = document.getElementById('player');
-
-    // Mettre à jour le statut du header
-    function updateUI() {
-      const nav = document.getElementById('navState');
-      if (currentUser) {
-        nav.innerHTML = `
-          <span style="font-size: 14px; opacity: 0.8;">Compte : 
-            <strong style="color: ${currentUser.isPremium ? '#ff0055' : '#00ff88'}">
-              ${currentUser.isPremium ? 'PREMIUM' : 'GRATUIT'}
-            </strong>
-          </span>
-          ${!currentUser.isPremium ? '<button class="btn-primary" onclick="subscribe()">Upgrade</button>' : ''}
-          <button class="btn-outline" onclick="logout()">Quitter</button>
-        `;
-      } else {
-        nav.innerHTML = `<button class="btn-outline" onclick="showModal('authModal')">Connexion</button>`;
-      }
-    }
-
-    // Gestion de compte
-    async function auth(action) {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      if(!email || !password) return alert("Remplis tous les champs !");
-
-      const res = await fetch(`/api/auth/${action}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-      if(data.success) {
-        currentUser = data.user;
-        closeModal('authModal');
-        updateUI();
-      } else {
-        alert(data.error);
-      }
-    }
-
-    function logout() { currentUser = null; updateUI(); }
-
-    // Chargement des films
-    async function loadMovies() {
-      const res = await fetch('/api/movies');
-      movies = await res.json();
-      const grid = document.getElementById('catalogue');
-      grid.innerHTML = movies.map(m => `
-        <div class="card" onclick="openVideo('${m.id}')">
-          <div class="badge ${m.isPremium ? 'badge-premium' : 'badge-free'}">
-            ${m.isPremium ? 'ALIBAPREMIUM' : 'GRATUIT'}
-          </div>
-          <img src="${m.poster}" alt="${m.title}">
-          <div class="card-info">
-            <h3 style="font-size: 18px; margin-bottom: 5px;">${m.title}</h3>
-            <span style="font-size: 12px; color: #aaa;">${m.category}</span>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // Gestion de la vidéo
-    function openVideo(id) {
-      if(!currentUser) return showModal('authModal');
-      
-      currentMovie = movies.find(m => m.id === id);
-      document.getElementById('paywall').style.display = 'none';
-      player.src = currentMovie.videoUrl;
-      showModal('videoModal');
-      player.play();
-    }
-
-    function closeVideo() {
-      player.pause();
-      player.currentTime = 0;
-      closeModal('videoModal');
-    }
-
-    // Le moteur du Paywall : Coupe la vidéo selon le temps admin
-    player.addEventListener('timeupdate', () => {
-      if(currentMovie && currentMovie.isPremium && !currentUser.isPremium) {
-        if(player.currentTime >= currentMovie.previewSeconds) {
-          player.pause();
-          if(document.fullscreenElement) document.exitFullscreen();
-          document.getElementById('paywall').style.display = 'flex';
-        }
-      }
-    });
-
-    // Paiement Stripe (Vérification de connexion obligatoire)
-function subscribe() {
-  // 1. On vérifie si l'utilisateur est connecté
-  if (!currentUser) {
-    alert("Tu dois d'abord te connecter ou créer un compte pour t'abonner !");
-    showModal('authModal'); // Ouvre la fenêtre de connexion
-    return; // Stoppe la fonction ici
+  if (user.isPremium && user.premiumUntil && new Date() > new Date(user.premiumUntil)) {
+    user.isPremium = false;
+    user.premiumUntil = null;
   }
+  res.json({ success: true, user: { email: user.email, isPremium: user.isPremium } });
+});
 
-  // 2. S'il est connecté, on l'envoie vers le paiement
-  window.location.href = "https://buy.stripe.com/14A5kC1SheK6ctc5MqgQE00"; 
-}
+// --- API FILMS ---
+app.get('/api/movies', (req, res) => {
+  res.json(movies);
+});
 
-    // Utilitaires
-    function showModal(id) { document.getElementById(id).style.display = 'flex'; }
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+// Ajouter un film
+app.post('/api/admin/movies', (req, res) => {
+  const { password, title, category, videoUrl, poster, isPremium, previewSeconds } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
 
-    loadMovies();
-    updateUI();
-  </script>
-</body>
-</html>
+  const newMovie = {
+    id: Date.now().toString(),
+    title, category, videoUrl, poster,
+    isPremium: !!isPremium,
+    previewSeconds: parseInt(previewSeconds) || 60
+  };
+  movies.push(newMovie);
+  res.json({ success: true, movie: newMovie });
+});
+
+// 🟢 NOUVEAU : Modifier un film existant
+app.put('/api/admin/movies/:id', (req, res) => {
+  const { password, title, category, videoUrl, poster, isPremium, previewSeconds } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
+
+  const movieIndex = movies.findIndex(m => m.id === req.params.id);
+  if (movieIndex === -1) return res.status(404).json({ error: "Film introuvable" });
+
+  movies[movieIndex] = {
+    ...movies[movieIndex],
+    title, category, videoUrl, poster,
+    isPremium: !!isPremium,
+    previewSeconds: parseInt(previewSeconds) || 60
+  };
+  res.json({ success: true, movie: movies[movieIndex] });
+});
+
+// 🔴 NOUVEAU : Supprimer un film
+app.delete('/api/admin/movies/:id', (req, res) => {
+  const { password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
+
+  const movieIndex = movies.findIndex(m => m.id === req.params.id);
+  if (movieIndex === -1) return res.status(404).json({ error: "Film introuvable" });
+
+  movies.splice(movieIndex, 1);
+  res.json({ success: true });
+});
+
+app.post('/api/admin/users', (req, res) => {
+  const { password, email, grantPremium, days } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
+
+  let user = users.find(u => u.email === email);
+  if (!user) return res.status(404).json({ error: "Utilisateur introuvable" });
+
+  if (grantPremium) {
+    user.isPremium = true;
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + parseInt(days));
+    user.premiumUntil = expiry.toISOString();
+  } else {
+    user.isPremium = false;
+    user.premiumUntil = null;
+  }
+  res.json({ success: true, user });
+});
+
+// --- ROUTES ---
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Serveur en ligne sur le port ${PORT}`));
