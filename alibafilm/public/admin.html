@@ -2,92 +2,103 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>ALIBAFILM - Administration</title>
+  <title>ALIBAFILM - Panneau d'Administration</title>
   <style>
-    body { background: #0b0f19; color: white; font-family: sans-serif; padding: 40px; }
-    .box { background: #151c2e; padding: 25px; border-radius: 12px; max-width: 600px; margin: 0 auto 30px auto; border: 1px solid #252e48; }
-    h2 { margin-bottom: 20px; color: #ff2a5f; }
-    input, select, button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 6px; border: 1px solid #252e48; background: #0b0f19; color: white; }
-    button { background: #ff2a5f; color: white; font-weight: bold; border: none; cursor: pointer; }
+    body { background: #09090f; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; }
+    h1 { text-align: center; margin-bottom: 40px; background: linear-gradient(135deg, #ff0055, #9d00ff); -webkit-background-clip: text; color: transparent; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; max-width: 1000px; margin: 0 auto; }
+    .card { background: #161622; padding: 30px; border-radius: 15px; border: 1px solid #333; }
+    h2 { margin-bottom: 20px; font-size: 20px; }
+    
+    input, select, button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; background: #09090f; color: white; outline: none; }
+    input:focus, select:focus { border-color: #ff0055; }
+    button { background: linear-gradient(135deg, #ff0055, #9d00ff); border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:hover { opacity: 0.9; transform: translateY(-2px); }
+    label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
   </style>
 </head>
 <body>
 
-  <div class="box">
-    <h2>Authentification Admin</h2>
-    <input type="password" id="adminPass" placeholder="Mot de passe admin (admba)">
+  <h1>Contrôle Principal - ALIBAFILM</h1>
+
+  <div style="max-width: 400px; margin: 0 auto 30px auto;">
+    <input type="password" id="adminPass" placeholder="Mot de passe Administrateur (admba)" style="border-color: #ff0055;">
   </div>
 
-  <div class="box">
-    <h2>Ajouter un Film / Série</h2>
-    <input type="text" id="title" placeholder="Titre du film">
-    <input type="text" id="category" placeholder="Catégorie (Action, Sci-Fi...)">
-    <input type="text" id="videoUrl" placeholder="URL de la vidéo (.mp4)">
-    <input type="text" id="poster" placeholder="URL de l'image de couverture">
-    
-    <label>Accès :</label>
-    <select id="isPremium">
-      <option value="true">ALIBAPREMIUM Uniquement</option>
-      <option value="false">Gratuit</option>
-    </select>
+  <div class="grid">
+    <!-- Ajouter un contenu -->
+    <div class="card">
+      <h2>Ajouter un Film / Série</h2>
+      <input type="text" id="title" placeholder="Titre (ex: Inception)">
+      <input type="text" id="category" placeholder="Catégorie (ex: Sci-Fi)">
+      <input type="url" id="videoUrl" placeholder="Lien de la vidéo MP4">
+      <input type="url" id="poster" placeholder="Lien de l'image de couverture">
+      
+      <label>Statut de l'abonnement :</label>
+      <select id="isPremium">
+        <option value="true">Payant (ALIBAPREMIUM requis)</option>
+        <option value="false">100% Gratuit</option>
+      </select>
 
-    <label>Durée de l'extrait gratuit (en secondes) :</label>
-    <input type="number" id="previewSeconds" value="60">
+      <label>Durée de l'extrait gratuit pour ce film (en secondes) :</label>
+      <input type="number" id="previewSeconds" placeholder="Ex: 60 (pour 1 minute)" value="60">
 
-    <button onclick="addMovie()">Ajouter au catalogue</button>
-  </div>
+      <button onclick="addMovie()">Publier sur le site</button>
+    </div>
 
-  <div class="box">
-    <h2>Gérer l'Abonnement d'un Utilisateur</h2>
-    <input type="email" id="userEmail" placeholder="Email de l'utilisateur">
-    <select id="userPremiumStatus">
-      <option value="true">Offrir l'abonnement</option>
-      <option value="false">Révoquer l'abonnement</option>
-    </select>
-    <input type="number" id="subDays" placeholder="Nombre de jours d'abonnement" value="30">
-    <button onclick="updateUser()">Mettre à jour l'utilisateur</button>
+    <!-- Gérer les utilisateurs -->
+    <div class="card">
+      <h2>Gérer les abonnements Utilisateurs</h2>
+      <input type="email" id="userEmail" placeholder="Email du compte utilisateur">
+      
+      <label>Action :</label>
+      <select id="grantAction">
+        <option value="true">Offrir des jours Premium</option>
+        <option value="false">Révoquer / Enlever le Premium</option>
+      </select>
+
+      <label>Nombre de jours à offrir :</label>
+      <input type="number" id="days" placeholder="Ex: 30" value="30">
+
+      <button onclick="manageUser()">Appliquer à l'utilisateur</button>
+    </div>
   </div>
 
   <script>
-    async function addMovie() {
+    async function apiCall(endpoint, data) {
       const password = document.getElementById('adminPass').value;
-      const data = {
-        password,
+      if (!password) return alert("Saisis le mot de passe admin en haut !");
+      
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, ...data })
+      });
+      const result = await res.json();
+      if(result.success) {
+        alert("Opération réussie !");
+      } else {
+        alert("Erreur : " + result.error);
+      }
+    }
+
+    function addMovie() {
+      apiCall('/api/admin/movies', {
         title: document.getElementById('title').value,
         category: document.getElementById('category').value,
         videoUrl: document.getElementById('videoUrl').value,
         poster: document.getElementById('poster').value,
         isPremium: document.getElementById('isPremium').value === 'true',
         previewSeconds: document.getElementById('previewSeconds').value
-      };
-
-      const res = await fetch('/api/admin/add-movie', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
       });
-      const result = await res.json();
-      if(result.success) alert("Film ajouté avec succès !");
-      else alert(result.error || "Erreur lors de l'ajout");
     }
 
-    async function updateUser() {
-      const password = document.getElementById('adminPass').value;
-      const data = {
-        password,
+    function manageUser() {
+      apiCall('/api/admin/users', {
         email: document.getElementById('userEmail').value,
-        isPremium: document.getElementById('userPremiumStatus').value === 'true',
-        days: document.getElementById('subDays').value
-      };
-
-      const res = await fetch('/api/admin/user-subscription', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        grantPremium: document.getElementById('grantAction').value === 'true',
+        days: document.getElementById('days').value
       });
-      const result = await res.json();
-      if(result.success) alert("Abonnement mis à jour !");
-      else alert(result.error || "Erreur");
     }
   </script>
 </body>
