@@ -19,9 +19,8 @@
     label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
     #progressText { display: none; color: #00ff88; font-weight: bold; margin-bottom: 15px; text-align: center; }
 
-    /* Styles pour la liste des films */
     .movie-item { background: #09090f; padding: 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; margin-bottom: 10px;}
-    .movie-info { display: flex; flex-direction: column; gap: 5px; }
+    .movie-info { display: flex; flexDirection: column; gap: 5px; }
     .movie-actions { display: flex; gap: 10px; }
     .movie-actions button { width: auto; margin-bottom: 0; padding: 8px 15px; font-size: 12px; }
     .btn-edit { background: transparent; border: 1px solid #00ff88; color: #00ff88; }
@@ -38,7 +37,6 @@
   </div>
 
   <div class="grid">
-    <!-- Formulaire Ajouter / Modifier -->
     <div class="card" id="formCard">
       <h2 id="formTitle">Ajouter un Film / Série</h2>
       <input type="text" id="title" placeholder="Titre (ex: Inception)">
@@ -51,13 +49,16 @@
       <input type="url" id="poster" placeholder="Lien de l'image de couverture (Affiche)">
       
       <label>Statut de l'abonnement :</label>
-      <select id="isPremium">
+      <select id="isPremium" onchange="togglePreviewField()">
         <option value="true">Payant (ALIBAPREMIUM requis)</option>
         <option value="false">100% Gratuit</option>
       </select>
 
-      <label>Durée de l'extrait gratuit (en secondes) :</label>
-      <input type="number" id="previewSeconds" placeholder="Ex: 60" value="60">
+      <!-- Conteneur de l'extrait (masqué si gratuit) -->
+      <div id="previewContainer">
+        <label>Durée de l'extrait gratuit (en secondes) :</label>
+        <input type="number" id="previewSeconds" placeholder="Ex: 60" value="60">
+      </div>
 
       <div id="progressText">Upload vers Supabase en cours... Patience !</div>
 
@@ -67,7 +68,6 @@
       </div>
     </div>
 
-    <!-- Gérer les utilisateurs -->
     <div class="card">
       <h2>Gérer les abonnements Utilisateurs</h2>
       <input type="email" id="userEmail" placeholder="Email du compte utilisateur">
@@ -79,7 +79,6 @@
       <button id="userBtn">Appliquer à l'utilisateur</button>
     </div>
 
-    <!-- Liste des films -->
     <div class="card full-width">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h2 style="margin: 0;">Catalogue Actuel</h2>
@@ -90,7 +89,6 @@
   </div>
 
   <script>
-    // ⚠️ REMPLACE LA CLÉ PAR TA LONGUE CLÉ (eyJ...) ⚠️
     const supabaseUrl = 'https://onvmmrgnzbargubpkqxk.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9udm1tcmduemJhcmd1YnBrcXhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzMjMwODUsImV4cCI6MjEwMDg5OTA4NX0.LzFuewqBW0mvGy98DfsWOr5eYFuqI-kNrD0foFy2Nhg';
     const client = window.supabase.createClient(supabaseUrl, supabaseKey);
@@ -99,7 +97,13 @@
     let editingId = null;
     let editingVideoUrl = null;
 
-    // --- 1. CHARGER LA LISTE DES FILMS ---
+    // Masque ou affiche le champ extrait selon le choix
+    function togglePreviewField() {
+      const isPremium = document.getElementById('isPremium').value === 'true';
+      const container = document.getElementById('previewContainer');
+      container.style.display = isPremium ? 'block' : 'none';
+    }
+
     async function loadMovies() {
       const res = await fetch('/api/movies');
       currentMovies = await res.json();
@@ -114,7 +118,7 @@
         <div class="movie-item">
             <div class="movie-info">
                 <strong style="font-size: 18px;">${m.title}</strong>
-                <span style="font-size: 12px; color: #aaa;">${m.category} | ${m.isPremium ? '💎 PREMIUM' : '🟢 GRATUIT'} | ${m.previewSeconds}s d'extrait</span>
+                <span style="font-size: 12px; color: #aaa;">${m.category} | ${m.isPremium ? `💎 PREMIUM (${m.previewSeconds}s d'extrait)` : '🟢 100% GRATUIT'}</span>
             </div>
             <div class="movie-actions">
                 <button class="btn-edit" onclick="prepareEdit('${m.id}')">Modifier</button>
@@ -124,13 +128,12 @@
       `).join('');
     }
 
-    // --- 2. PREPARER LA MODIFICATION ---
     function prepareEdit(id) {
       const m = currentMovies.find(x => x.id === id);
       if(!m) return;
       
       editingId = id;
-      editingVideoUrl = m.videoUrl; // On garde en mémoire l'ancienne vidéo
+      editingVideoUrl = m.videoUrl; 
       
       document.getElementById('title').value = m.title;
       document.getElementById('category').value = m.category;
@@ -138,24 +141,24 @@
       document.getElementById('isPremium').value = m.isPremium.toString();
       document.getElementById('previewSeconds').value = m.previewSeconds;
       
-      // On change l'apparence du formulaire
+      togglePreviewField(); // Met à jour l'affichage du champ extrait
+
       document.getElementById('formTitle').innerText = "✏️ Modifier : " + m.title;
       document.getElementById('uploadBtn').innerText = "Enregistrer les modifications";
       document.getElementById('cancelEditBtn').style.display = "block";
       document.getElementById('videoHint').style.display = "block";
-      
-      window.scrollTo(0, 0); // Remonte tout en haut
+      window.scrollTo(0, 0); 
     }
 
-    // --- 3. ANNULER LA MODIFICATION ---
     function cancelEdit() {
       editingId = null;
       editingVideoUrl = null;
-      
       document.getElementById('title').value = '';
       document.getElementById('category').value = '';
       document.getElementById('poster').value = '';
       document.getElementById('videoFile').value = '';
+      document.getElementById('isPremium').value = 'true';
+      togglePreviewField();
       
       document.getElementById('formTitle').innerText = "Ajouter un Film / Série";
       document.getElementById('uploadBtn').innerText = "Uploader et Publier";
@@ -163,39 +166,31 @@
       document.getElementById('videoHint').style.display = "none";
     }
 
-    // --- 4. SAUVEGARDER (AJOUT OU MODIFICATION) ---
     document.getElementById('uploadBtn').addEventListener('click', async () => {
       const password = document.getElementById('adminPass').value;
       if (!password) return alert("Saisis le mot de passe admin en haut !");
 
       const fileInput = document.getElementById('videoFile');
       const file = fileInput.files[0];
-
-      // Si c'est un NOUVEAU film, la vidéo est obligatoire
       if (!editingId && !file) return alert("Sélectionne une vidéo sur ton ordinateur !");
 
       const btn = document.getElementById('uploadBtn');
       const progressText = document.getElementById('progressText');
-      
       btn.disabled = true;
       btn.style.opacity = "0.5";
 
       try {
-        let finalVideoUrl = editingVideoUrl; // Par défaut, on garde la vidéo existante si on modifie
-
-        // Si on a mis un NOUVEAU fichier vidéo (soit pour ajouter, soit pour remplacer l'ancienne)
+        let finalVideoUrl = editingVideoUrl; 
         if (file) {
           progressText.style.display = "block";
           const fileName = Date.now() + '-' + file.name.replace(/\s+/g, '-');
-          
           const { data, error } = await client.storage.from('movies').upload(fileName, file);
           if (error) throw error;
-
           const { data: publicUrlData } = client.storage.from('movies').getPublicUrl(fileName);
           finalVideoUrl = publicUrlData.publicUrl;
         }
 
-        // Est-ce qu'on ajoute ou on modifie ?
+        const isPrem = document.getElementById('isPremium').value === 'true';
         const endpoint = editingId ? `/api/admin/movies/${editingId}` : '/api/admin/movies';
         const method = editingId ? 'PUT' : 'POST';
 
@@ -207,8 +202,8 @@
             title: document.getElementById('title').value,
             category: document.getElementById('category').value,
             poster: document.getElementById('poster').value,
-            isPremium: document.getElementById('isPremium').value === 'true',
-            previewSeconds: document.getElementById('previewSeconds').value,
+            isPremium: isPrem,
+            previewSeconds: isPrem ? document.getElementById('previewSeconds').value : 0,
             videoUrl: finalVideoUrl
           })
         });
@@ -217,7 +212,7 @@
         if(result.success) {
           alert(editingId ? "Modifications enregistrées !" : "Film ajouté avec succès !");
           cancelEdit();
-          loadMovies(); // Met à jour la liste en bas
+          loadMovies(); 
         } else {
           alert("Erreur Serveur : " + result.error);
         }
@@ -230,7 +225,6 @@
       }
     });
 
-    // --- 5. SUPPRIMER UN FILM ---
     async function deleteMovie(id) {
       const password = document.getElementById('adminPass').value;
       if (!password) return alert("Saisis le mot de passe admin en haut !");
@@ -242,17 +236,12 @@
         body: JSON.stringify({ password })
       });
       const result = await res.json();
-      if(result.success) {
-        loadMovies();
-      } else {
-        alert("Erreur : " + result.error);
-      }
+      if(result.success) loadMovies();
+      else alert("Erreur : " + result.error);
     }
 
-    // On charge la liste automatiquement quand on ouvre la page
     loadMovies();
 
-    // Gestion des utilisateurs
     document.getElementById('userBtn').addEventListener('click', async () => {
       const password = document.getElementById('adminPass').value;
       if (!password) return alert("Saisis le mot de passe admin en haut !");
