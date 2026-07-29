@@ -210,10 +210,18 @@
       }
     });
 
-    // Paiement Stripe (Lien à remplacer)
-    function subscribe() {
-  window.location.href = "https://buy.stripe.com/14A5kC1SheK6ctc5MqgQE00";
-    }
+    // Paiement Stripe (Vérification de connexion obligatoire)
+function subscribe() {
+  // 1. On vérifie si l'utilisateur est connecté
+  if (!currentUser) {
+    alert("Tu dois d'abord te connecter ou créer un compte pour t'abonner !");
+    showModal('authModal'); // Ouvre la fenêtre de connexion
+    return; // Stoppe la fonction ici
+  }
+
+  // 2. S'il est connecté, on l'envoie vers le paiement
+  window.location.href = "https://buy.stripe.com/14A5kC1SheK6ctc5MqgQE00"; 
+}
 
     // Utilitaires
     function showModal(id) { document.getElementById(id).style.display = 'flex'; }
