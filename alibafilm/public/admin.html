@@ -69,10 +69,12 @@
   </div>
 
   <script>
-    // ⚠️ REMPLACE PAR TES INFOS SUPABASE ICI ⚠️
+    // ⚠️ TES INFOS SUPABASE ⚠️
     const supabaseUrl = 'https://onvmmrgnzbargubpkqxk.supabase.co';
-    const supabaseKey = 'sb_publishable_wCVYF1QJeywAPq4YVAJxUw_z__HXmXo';
-    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+    const supabaseKey = 'sb_publishable_wCVYFlQJeywAPq4YVAJxUw_z__HXmXo';
+    
+    // CORRECTION ICI : On utilise "client" pour éviter le conflit
+    const client = window.supabase.createClient(supabaseUrl, supabaseKey);
 
     // Upload et publication du film
     document.getElementById('uploadBtn').addEventListener('click', async () => {
@@ -93,14 +95,16 @@
       try {
         // 1. Upload du fichier vers le bucket 'movies' de Supabase
         const fileName = Date.now() + '-' + file.name.replace(/\s+/g, '-');
-        const { data, error } = await supabase.storage
+        
+        // On utilise "client" ici !
+        const { data, error } = await client.storage
           .from('movies')
           .upload(fileName, file);
 
         if (error) throw error;
 
         // 2. Récupération du lien public permanent
-        const { data: publicUrlData } = supabase.storage
+        const { data: publicUrlData } = client.storage
           .from('movies')
           .getPublicUrl(fileName);
         
