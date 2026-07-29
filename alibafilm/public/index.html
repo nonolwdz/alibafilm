@@ -16,7 +16,6 @@
 
     body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; }
     
-    /* EN-TÊTE ET RECHERCHE */
     header { 
       display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; 
       background: rgba(9, 9, 15, 0.85); backdrop-filter: blur(10px);
@@ -31,9 +30,7 @@
     }
     .search-bar input:focus { border-color: var(--primary); background: var(--card-bg); box-shadow: 0 0 15px rgba(255, 0, 85, 0.2); }
     
-    /* BOUTONS GLOBAUX */
     button { transition: 0.2s; cursor: pointer; outline: none; }
-    
     nav { display: flex; align-items: center; }
     nav button { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.1); padding: 10px 20px; border-radius: 30px; margin-left: 10px; font-weight: 500; }
     nav button:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-1px); }
@@ -41,17 +38,14 @@
     
     .btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; border-radius: 50px; font-weight: bold; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(255, 0, 85, 0.4); border: none; }
     .btn-primary:hover { opacity: 0.9; transform: scale(1.02); box-shadow: 0 6px 20px rgba(255, 0, 85, 0.6); }
-    
     .btn-secondary { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 50px; backdrop-filter: blur(5px); }
     .btn-secondary:hover { background: rgba(255, 255, 255, 0.2); }
-
     .btn-ghost { background: transparent; color: var(--text-muted); text-decoration: underline; border: none; font-size: 14px; margin-top: 15px; }
     .btn-ghost:hover { color: white; }
 
     .container { padding: 40px; }
     h2 { font-size: 22px; font-weight: 600; margin-bottom: 20px; border-left: 4px solid var(--primary); padding-left: 10px; }
 
-    /* HERO BANNER */
     .hero { 
       position: relative; height: 60vh; border-radius: 15px; margin-bottom: 50px; overflow: hidden;
       background-size: cover; background-position: center; 
@@ -65,15 +59,11 @@
     .hero-btn { background: white; color: black; border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 30px; display: flex; align-items: center; gap: 10px; }
     .hero-btn:hover { background: #ddd; transform: scale(1.05); }
 
-    /* SLIDERS & GRIDS */
     .slider { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 20px; scroll-snap-type: x mandatory; scrollbar-width: none; }
     .slider::-webkit-scrollbar { display: none; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
     
-    .movie-card { 
-      background: var(--card-bg); border-radius: 10px; overflow: hidden; cursor: pointer; transition: 0.3s; 
-      border: 1px solid rgba(255,255,255,0.05); position: relative;
-    }
+    .movie-card { background: var(--card-bg); border-radius: 10px; overflow: hidden; cursor: pointer; transition: 0.3s; border: 1px solid rgba(255,255,255,0.05); position: relative; }
     .slider .movie-card { min-width: 220px; flex: 0 0 auto; scroll-snap-align: start; }
     .movie-card:hover { transform: translateY(-10px) scale(1.02); border-color: var(--primary); box-shadow: 0 10px 20px rgba(0,0,0,0.5); z-index: 2; }
     .movie-card img { width: 100%; height: 320px; object-fit: cover; transition: 0.3s; }
@@ -84,7 +74,6 @@
     .badge.premium { background: var(--primary); }
     .badge.free { background: #00ff88; color: black; }
 
-    /* MODALS */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); }
     .modal-content { background: var(--card-bg); padding: 40px; border-radius: 20px; border: 1px solid #333; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; }
     .modal-content input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #333; background: var(--bg); color: white; outline: none; box-sizing: border-box; }
@@ -92,7 +81,6 @@
     .modal-content button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 16px; }
     .close-btn { background: transparent; color: white; border: none; position: absolute; top: 15px; right: 20px; font-size: 28px; width: auto; padding: 0; }
 
-    /* LECTEUR VIDÉO */
     #videoContainer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2000; flex-direction: column; }
     video { width: 100%; height: 100%; background: black; }
     .video-header { position: absolute; top: 0; left: 0; width: 100%; padding: 20px 40px; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); display: flex; justify-content: space-between; align-items: center; z-index: 2002; box-sizing: border-box; }
@@ -108,7 +96,6 @@
       <input type="text" id="searchInput" placeholder="Rechercher un film, une série, un genre..." oninput="handleSearch()">
     </div>
 
-    <!-- Navigation Utilisateur -->
     <nav id="navAuth">
       <button onclick="showModal('authModal')">Connexion</button>
     </nav>
@@ -132,7 +119,6 @@
     <div class="grid" id="searchResultsGrid"></div>
   </main>
 
-  <!-- MODAL CONNEXION -->
   <div class="modal" id="authModal">
     <div class="modal-content">
       <button class="close-btn" onclick="hideModal('authModal')">×</button>
@@ -144,20 +130,16 @@
     </div>
   </div>
 
-  <!-- MODAL GESTION ABONNEMENT -->
   <div class="modal" id="manageSubModal">
     <div class="modal-content">
       <button class="close-btn" onclick="hideModal('manageSubModal')">×</button>
       <h2 style="margin-top: 0; margin-bottom: 25px; border:none; padding:0;">Mon Abonnement</h2>
-      <div id="subDetails" style="margin-bottom: 20px; font-size: 16px; color: #ddd; line-height: 1.5;">
-        <!-- Les infos d'abonnement apparaîtront ici -->
-      </div>
+      <div id="subDetails" style="margin-bottom: 20px; font-size: 16px; color: #ddd; line-height: 1.5;"></div>
       <button class="btn-primary" onclick="hideModal('manageSubModal')">Fermer</button>
       <button class="btn-ghost" onclick="cancelSubscription()">Résilier mon abonnement</button>
     </div>
   </div>
 
-  <!-- LECTEUR VIDÉO -->
   <div id="videoContainer">
     <div class="video-header">
       <h2 id="videoTitle" style="margin: 0; border: none; padding: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.8);"></h2>
@@ -182,11 +164,33 @@
     let currentMovie = null;
     let isPreviewEnded = false;
 
-    // --- SAUVEGARDE DE SESSION (Au démarrage) ---
-    const savedUser = localStorage.getItem('alibafilm_user');
-    if (savedUser) {
+    // --- VÉRIFICATION DU PROFIL À CHAQUE CHARGEMENT ---
+    async function checkUserSession() {
+      const savedUser = localStorage.getItem('alibafilm_user');
+      if (!savedUser) return;
+
       currentUser = JSON.parse(savedUser);
-      updateUI();
+      updateUI(); // Affichage immédiat avec les données en mémoire
+
+      try {
+        // Interroge le serveur en arrière-plan pour voir si le statut a changé (ex: admin qui offre le premium)
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: currentUser.email })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          currentUser = data.user;
+          localStorage.setItem('alibafilm_user', JSON.stringify(currentUser));
+          updateUI(); // Met à jour l'affichage instantanément
+        } else {
+          logout();
+        }
+      } catch (e) {
+        console.log("Vérification silencieuse impossible (hors ligne)");
+      }
     }
 
     function subscribe() {
@@ -268,7 +272,6 @@
       }
     }
 
-    // --- GESTION DU LECTEUR ---
     function openVideo(id) {
       currentMovie = movies.find(m => m.id === id);
       if (!currentMovie) return;
@@ -319,7 +322,6 @@
       document.getElementById('paywall').style.display = 'flex';
     }
 
-    // --- AUTHENTIFICATION ---
     async function register() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
@@ -333,7 +335,7 @@
       const data = await res.json();
       if(data.success) {
         currentUser = data.user;
-        localStorage.setItem('alibafilm_user', JSON.stringify(currentUser)); // Sauvegarde
+        localStorage.setItem('alibafilm_user', JSON.stringify(currentUser));
         updateUI();
         hideModal('authModal');
         alert("Compte créé avec succès ! Bienvenue !");
@@ -353,7 +355,7 @@
       const data = await res.json();
       if(data.success) {
         currentUser = data.user;
-        localStorage.setItem('alibafilm_user', JSON.stringify(currentUser)); // Sauvegarde
+        localStorage.setItem('alibafilm_user', JSON.stringify(currentUser));
         updateUI();
         hideModal('authModal');
       } else { alert(data.error); }
@@ -361,7 +363,7 @@
 
     function logout() {
       currentUser = null;
-      localStorage.removeItem('alibafilm_user'); // Efface la sauvegarde
+      localStorage.removeItem('alibafilm_user');
       updateUI();
     }
 
@@ -375,11 +377,9 @@
 
         if (currentUser.isPremium) {
           status.innerHTML = `👤 ${currentUser.email} <span style="color: #00ff88;">(💎 PREMIUM)</span>`;
-          // Le bouton intelligent si on a le Premium
           actionBtnContainer.innerHTML = `<button onclick="openManageSub()">Gérer l'abonnement</button>`;
         } else {
           status.innerHTML = `👤 ${currentUser.email} <span style="color: #aaa;">(Gratuit)</span>`;
-          // Le bouton Stripe classique si on n'est pas Premium
           actionBtnContainer.innerHTML = `<button class="premium-btn" onclick="subscribe()">Devenir ALIBAPREMIUM</button>`;
         }
       } else {
@@ -388,11 +388,8 @@
       }
     }
 
-    // --- GESTION DE L'ABONNEMENT ---
     function openManageSub() {
       const subDetails = document.getElementById('subDetails');
-      
-      // Si la date d'expiration existe (ça veut dire que ça a été offert par l'admin)
       if (currentUser.premiumUntil) {
         const dateObj = new Date(currentUser.premiumUntil);
         const dateStr = dateObj.toLocaleDateString('fr-FR');
@@ -402,7 +399,6 @@
           <p><strong>Valable jusqu'au :</strong> ${dateStr}</p>
         `;
       } else {
-        // Sinon c'est un abonnement classique
         subDetails.innerHTML = `
           <p><strong style="color: #00ff88;">✓ Statut :</strong> Actif</p>
           <p><strong>Origine :</strong> Abonnement Standard</p>
@@ -419,6 +415,8 @@
     function showModal(id) { document.getElementById(id).style.display = 'flex'; }
     function hideModal(id) { document.getElementById(id).style.display = 'none'; }
 
+    // --- LANCEMENT AU DÉMARRAGE ---
+    checkUserSession();
     loadMovies();
   </script>
 </body>
