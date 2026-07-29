@@ -15,23 +15,43 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const ADMIN_PASSWORD = "admba";
 
-// 🎥 SUIVI DES LECTURES SIMULTANÉES (1 seule par compte)
-let activeStreams = {}; // { email: sessionId }
+// 🎥 SUIVI DES APPAREILS ET LECTURES SIMULTANÉES
+let activeSessions = {}; // { email: { sessionId, device, loginTime } }
 
 app.post('/api/stream/start', (req, res) => {
   const { email, sessionId } = req.body;
   if (!email) return res.json({ success: true });
-  activeStreams[email] = sessionId;
+  
+  // Analyse simple du User-Agent pour identifier l'appareil
+  const ua = req.headers['user-agent'] || 'Appareil inconnu';
+  let deviceName = 'Navigateur Web';
+  if (ua.includes('iPhone') || ua.includes('iPad')) deviceName = 'Appareil Apple (Mobile)';
+  else if (ua.includes('Android')) deviceName = 'Appareil Android';
+  else if (ua.includes('Macintosh')) deviceName = 'Mac (Ordinateur)';
+  else if (ua.includes('Windows')) deviceName = 'PC Windows';
+
+  activeSessions[email] = {
+    sessionId,
+    device: deviceName,
+    time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  };
   res.json({ success: true });
 });
 
 app.post('/api/stream/check', (req, res) => {
   const { email, sessionId } = req.body;
-  if (!email) return res.json({ allowed: true });
-  if (activeStreams[email] && activeStreams[email] !== sessionId) {
+  if (!email || !activeSessions[email]) return res.json({ allowed: true });
+  
+  if (activeSessions[email].sessionId !== sessionId) {
     return res.json({ allowed: false });
   }
   res.json({ allowed: true });
+});
+
+app.post('/api/auth/devices', (req, res) => {
+  const { email } = req.body;
+  if (!email || !activeSessions[email]) return res.json({ devices: [] });
+  res.json({ devices: [activeSessions[email]] });
 });
 
 // --- API UTILISATEURS ---
@@ -72,6 +92,21 @@ app.post('/api/auth/verify', async (req, res) => {
     await supabase.from('users').update({ isPremium: false, premiumUntil: null }).eq('email', email);
   }
   res.json({ success: true, user });
+});
+
+// 🔑 Modification du mot de passe (pour tous)
+app.post('/api/auth/change-password', async (req, res) => {
+  const { email, oldPassword, newPassword } = req.body;
+  const { data: user } = await supabase.from('users').select('*').eq('email', email).single();
+
+  if (!user || user.password !== oldPassword) {
+    return res.status(400).json({ error: "Ancien mot de passe incorrect." });
+  }
+
+  const { error } = await supabase.from('users').update({ password: newPassword }).eq('email', email);
+  if (error) return res.status(500).json({ error: "Erreur lors de la mise à jour." });
+
+  res.json({ success: true });
 });
 
 // --- API FILMS ---
