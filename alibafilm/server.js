@@ -8,22 +8,38 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🔌 CONNEXION À LA BASE DE DONNÉES SUPABASE
+// 🔌 CONNEXION SUPABASE
 const supabaseUrl = 'https://onvmmrgnzbargubpkqxk.supabase.co';
 const supabaseKey = 'sb_secret_PVHdVI86aWopBfX2huF30g_xglSdVDQ';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const ADMIN_PASSWORD = "admba";
 
+// 🎥 SUIVI DES LECTURES SIMULTANÉES (1 seule par compte)
+let activeStreams = {}; // { email: sessionId }
+
+app.post('/api/stream/start', (req, res) => {
+  const { email, sessionId } = req.body;
+  if (!email) return res.json({ success: true });
+  activeStreams[email] = sessionId;
+  res.json({ success: true });
+});
+
+app.post('/api/stream/check', (req, res) => {
+  const { email, sessionId } = req.body;
+  if (!email) return res.json({ allowed: true });
+  if (activeStreams[email] && activeStreams[email] !== sessionId) {
+    return res.json({ allowed: false });
+  }
+  res.json({ allowed: true });
+});
+
 // --- API UTILISATEURS ---
 app.post('/api/auth/register', async (req, res) => {
   const { email, password } = req.body;
-  
-  // Vérifie si l'utilisateur existe déjà
   const { data: existingUser } = await supabase.from('users').select('*').eq('email', email).single();
   if (existingUser) return res.status(400).json({ error: "Cet email est déjà utilisé." });
 
-  // Crée l'utilisateur
   const newUser = { email, password, isPremium: false, premiumUntil: null };
   const { error } = await supabase.from('users').insert([newUser]);
   if (error) return res.status(500).json({ error: "Erreur de base de données." });
@@ -37,7 +53,6 @@ app.post('/api/auth/login', async (req, res) => {
 
   if (!user || error) return res.status(401).json({ error: "Identifiants incorrects." });
 
-  // Désactive le premium si la date est dépassée
   if (user.isPremium && user.premiumUntil && new Date() > new Date(user.premiumUntil)) {
     user.isPremium = false;
     user.premiumUntil = null;
@@ -107,7 +122,6 @@ app.delete('/api/admin/movies/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// --- API GESTION UTILISATEURS ADMIN ---
 app.post('/api/admin/users', async (req, res) => {
   const { password, email, grantPremium, days } = req.body;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
