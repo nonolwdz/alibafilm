@@ -10,7 +10,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // 🔌 CONNEXION À LA BASE DE DONNÉES SUPABASE
 const supabaseUrl = 'https://onvmmrgnzbargubpkqxk.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9udm1tcmduemJhcmd1YnBrcXhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzMjMwODUsImV4cCI6MjEwMDg5OTA4NX0.LzFuewqBW0mvGy98DfsWOr5eYFuqI-kNrD0foFy2Nhg';
+const supabaseKey = 'sb_secret_PVHdVI86aWopBfX2huF30g_xglSdVDQ';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const ADMIN_PASSWORD = "admba";
