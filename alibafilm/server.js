@@ -19,7 +19,7 @@ app.post('/api/auth/register', (req, res) => {
   if (users.find(u => u.email === email)) return res.status(400).json({ error: "Cet email est déjà utilisé." });
   const newUser = { email, password, isPremium: false, premiumUntil: null };
   users.push(newUser);
-  res.json({ success: true, user: { email: newUser.email, isPremium: newUser.isPremium } });
+  res.json({ success: true, user: { email: user.email, isPremium: user.isPremium, premiumUntil: user.premiumUntil } });
 });
 
 app.post('/api/auth/login', (req, res) => {
