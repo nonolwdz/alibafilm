@@ -1,111 +1,263 @@
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ALIBAFILM - Streaming</title>
+  <style>
+    body { margin: 0; background: #09090f; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    header { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; background: #161622; border-bottom: 1px solid #333; }
+    h1 { margin: 0; background: linear-gradient(135deg, #ff0055, #9d00ff); -webkit-background-clip: text; color: transparent; font-size: 28px; }
+    nav button { background: #222233; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-left: 10px; transition: 0.2s; }
+    nav button:hover { opacity: 0.8; }
+    nav button.premium-btn { background: linear-gradient(135deg, #ff0055, #9d00ff); font-weight: bold; }
+    
+    .container { padding: 40px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+    .movie-card { background: #161622; border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform 0.2s; border: 1px solid #333; }
+    .movie-card:hover { transform: scale(1.05); border-color: #ff0055; }
+    .movie-card img { width: 100%; height: 300px; object-fit: cover; }
+    .movie-info { padding: 15px; }
+    .movie-title { font-weight: bold; margin-bottom: 5px; font-size: 16px;}
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+    .badge.premium { background: #ff0055; }
+    .badge.free { background: #00ff88; color: black; }
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+    /* Fenêtres Modales */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: #161622; padding: 30px; border-radius: 15px; border: 1px solid #333; width: 90%; max-width: 400px; text-align: center; }
+    .modal-content input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; background: #09090f; color: white; outline: none; box-sizing: border-box; }
+    .modal-content input:focus { border-color: #ff0055; }
+    .modal-content button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
+    .btn-primary { background: linear-gradient(135deg, #ff0055, #9d00ff); color: white; }
+    .btn-secondary { background: #222233; color: white; }
+    .btn-primary:hover, .btn-secondary:hover { opacity: 0.8; }
+    .close-btn { background: transparent; color: white; border: none; cursor: pointer; float: right; font-size: 24px; font-weight: bold; padding: 0;}
 
-// Base de données en mémoire
-let users = [];
-let movies = [];
+    /* Lecteur Vidéo Plein Ecran */
+    #videoContainer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2000; flex-direction: column; }
+    video { width: 100%; height: 90%; background: black; }
+    .video-header { padding: 15px 30px; background: #09090f; display: flex; justify-content: space-between; align-items: center; height: 10%; box-sizing: border-box; border-bottom: 1px solid #333; }
+    
+    /* Blocage de la vidéo (Paywall) */
+    #paywall { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); justify-content: center; align-items: center; flex-direction: column; z-index: 2001; text-align: center;}
+  </style>
+</head>
+<body>
 
-const ADMIN_PASSWORD = "admba";
+  <!-- EN-TÊTE DU SITE -->
+  <header>
+    <h1>ALIBAFILM</h1>
+    
+    <!-- Boutons si NON connecté -->
+    <nav id="navAuth">
+      <button onclick="showModal('authModal')">Connexion / Inscription</button>
+    </nav>
+    
+    <!-- Boutons si CONNECTÉ -->
+    <nav id="navUser" style="display: none;">
+      <span id="userStatus" style="margin-right: 15px; font-weight: bold;"></span>
+      <button class="premium-btn" onclick="subscribe()">Devenir ALIBAPREMIUM (3.99€)</button>
+      <button onclick="logout()">Déconnexion</button>
+    </nav>
+  </header>
 
-// --- API UTILISATEURS ---
-app.post('/api/auth/register', (req, res) => {
-  const { email, password } = req.body;
-  if (users.find(u => u.email === email)) return res.status(400).json({ error: "Cet email est déjà utilisé." });
-  const newUser = { email, password, isPremium: false, premiumUntil: null };
-  users.push(newUser);
-  res.json({ success: true, user: { email: newUser.email, isPremium: newUser.isPremium } });
-});
+  <!-- CATALOGUE -->
+  <div class="container">
+    <h2 style="margin-bottom: 30px;">Films et Séries disponibles</h2>
+    <div class="grid" id="movieGrid">
+      <!-- Les affiches de films vont apparaître ici automatiquement -->
+    </div>
+  </div>
 
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  const user = users.find(u => u.email === email && u.password === password);
-  if (!user) return res.status(401).json({ error: "Identifiants incorrects." });
+  <!-- FENÊTRE D'AUTHENTIFICATION (Connexion / Inscription) -->
+  <div class="modal" id="authModal">
+    <div class="modal-content">
+      <button class="close-btn" onclick="hideModal('authModal')">×</button>
+      <h2 style="margin-top: 0; margin-bottom: 25px;">Mon Compte</h2>
+      <input type="email" id="email" placeholder="Adresse Email">
+      <input type="password" id="password" placeholder="Mot de passe">
+      <button class="btn-primary" onclick="login()">Se connecter</button>
+      <button class="btn-secondary" onclick="register()">Créer un compte</button>
+    </div>
+  </div>
 
-  if (user.isPremium && user.premiumUntil && new Date() > new Date(user.premiumUntil)) {
-    user.isPremium = false;
-    user.premiumUntil = null;
-  }
-  res.json({ success: true, user: { email: user.email, isPremium: user.isPremium } });
-});
+  <!-- LECTEUR VIDÉO (Caché par défaut) -->
+  <div id="videoContainer">
+    <div class="video-header">
+      <h2 id="videoTitle" style="margin: 0;"></h2>
+      <button class="btn-secondary" style="width: auto; margin: 0;" onclick="closeVideo()">Retour au catalogue</button>
+    </div>
+    <div style="position: relative; height: 90%; width: 100%;">
+      <!-- Le lecteur -->
+      <video id="videoPlayer" controls controlsList="nodownload"></video>
+      
+      <!-- La barrière payante qui s'affiche à la fin de l'extrait -->
+      <div id="paywall">
+        <h2 style="font-size: 32px; color: #ff0055;">⏱️ Fin de l'extrait gratuit</h2>
+        <p style="font-size: 18px;">Pour continuer à regarder ce film, passe au statut Premium !</p>
+        <button class="btn-primary" style="width: auto; padding: 15px 30px; font-size: 18px; margin-top: 20px;" onclick="subscribe()">Devenir ALIBAPREMIUM pour 3.99€</button>
+        <button class="btn-secondary" style="width: auto; margin-top: 15px;" onclick="closeVideo()">Fermer le lecteur</button>
+      </div>
+    </div>
+  </div>
 
-// --- API FILMS ---
-app.get('/api/movies', (req, res) => {
-  res.json(movies);
-});
+  <!-- LE MOTEUR DU SITE (JAVASCRIPT) -->
+  <script>
+    let currentUser = null;
+    let movies = [];
+    const videoPlayer = document.getElementById('videoPlayer');
+    let currentMovie = null;
 
-// Ajouter un film
-app.post('/api/admin/movies', (req, res) => {
-  const { password, title, category, videoUrl, poster, isPremium, previewSeconds } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
+    // 1. PAIEMENT STRIPE (Lien intégré + vérification)
+    function subscribe() {
+      if (!currentUser) {
+        alert("Tu dois d'abord te connecter ou créer un compte pour t'abonner !");
+        showModal('authModal');
+        return;
+      }
+      // Redirection vers ton lien Stripe
+      window.location.href = "https://buy.stripe.com/14A5kC1SheK6ctc5MqgQE00"; 
+    }
 
-  const newMovie = {
-    id: Date.now().toString(),
-    title, category, videoUrl, poster,
-    isPremium: !!isPremium,
-    previewSeconds: parseInt(previewSeconds) || 60
-  };
-  movies.push(newMovie);
-  res.json({ success: true, movie: newMovie });
-});
+    // 2. CHARGER ET AFFICHER LE CATALOGUE
+    async function loadMovies() {
+      try {
+        const res = await fetch('/api/movies');
+        movies = await res.json();
+        renderMovies();
+      } catch (err) {
+        document.getElementById('movieGrid').innerHTML = "<p>Erreur de connexion au serveur.</p>";
+      }
+    }
 
-// Modifier un film existant
-app.put('/api/admin/movies/:id', (req, res) => {
-  const { password, title, category, videoUrl, poster, isPremium, previewSeconds } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
+    function renderMovies() {
+      const grid = document.getElementById('movieGrid');
+      if (movies.length === 0) {
+        grid.innerHTML = "<p style='color:#aaa;'>Aucun film disponible. Va dans l'interface admin (/admin) pour uploader ta première vidéo !</p>";
+        return;
+      }
+      grid.innerHTML = movies.map(m => `
+        <div class="movie-card" onclick="openVideo('${m.id}')">
+          <img src="${m.poster || 'https://via.placeholder.com/300x450/222233/ffffff?text=Image+Manquante'}" alt="${m.title}">
+          <div class="movie-info">
+            <div class="movie-title">${m.title}</div>
+            <div style="font-size: 12px; color: #aaa; margin-bottom: 8px;">${m.category}</div>
+            <span class="badge ${m.isPremium ? 'premium' : 'free'}">${m.isPremium ? '💎 PREMIUM' : '🟢 GRATUIT'}</span>
+          </div>
+        </div>
+      `).join('');
+    }
 
-  const movieIndex = movies.findIndex(m => m.id === req.params.id);
-  if (movieIndex === -1) return res.status(404).json({ error: "Film introuvable" });
+    // 3. GESTION DU LECTEUR VIDÉO ET DE L'EXTRAIT GRATUIT
+    function openVideo(id) {
+      currentMovie = movies.find(m => m.id === id);
+      if (!currentMovie) return;
 
-  movies[movieIndex] = {
-    ...movies[movieIndex],
-    title, category, videoUrl, poster,
-    isPremium: !!isPremium,
-    previewSeconds: parseInt(previewSeconds) || 60
-  };
-  res.json({ success: true, movie: movies[movieIndex] });
-});
+      document.getElementById('videoTitle').innerText = currentMovie.title;
+      videoPlayer.src = currentMovie.videoUrl;
+      document.getElementById('videoContainer').style.display = 'flex';
+      document.getElementById('paywall').style.display = 'none';
+      videoPlayer.setAttribute('controls', 'controls'); // Remet les contrôles si on les avait enlevés
+      
+      videoPlayer.play().catch(e => console.log("La lecture automatique est parfois bloquée par le navigateur."));
+    }
 
-// Supprimer un film
-app.delete('/api/admin/movies/:id', (req, res) => {
-  const { password } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
+    function closeVideo() {
+      videoPlayer.pause();
+      videoPlayer.src = "";
+      document.getElementById('videoContainer').style.display = 'none';
+      document.getElementById('paywall').style.display = 'none';
+      currentMovie = null;
+    }
 
-  const movieIndex = movies.findIndex(m => m.id === req.params.id);
-  if (movieIndex === -1) return res.status(404).json({ error: "Film introuvable" });
+    // Le Chronomètre qui vérifie si on doit bloquer la vidéo
+    videoPlayer.addEventListener('timeupdate', () => {
+      if (!currentMovie) return;
+      
+      // Règle : Si le film est "Premium" ET que (Personne n'est connecté OU l'utilisateur n'est pas premium)
+      if (currentMovie.isPremium && (!currentUser || !currentUser.isPremium)) {
+        
+        // Si le temps actuel dépasse l'extrait autorisé
+        if (videoPlayer.currentTime >= currentMovie.previewSeconds) {
+          videoPlayer.pause();
+          videoPlayer.removeAttribute('controls'); // Enlève la barre de lecture pour pas qu'il triche
+          document.getElementById('paywall').style.display = 'flex'; // Affiche le gros bouton payer
+        }
+      }
+    });
 
-  movies.splice(movieIndex, 1);
-  res.json({ success: true });
-});
+    // 4. AUTHENTIFICATION (Comptes Utilisateurs)
+    async function register() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      if(!email || !password) return alert("Remplis tous les champs !");
 
-// Gestion des utilisateurs admin
-app.post('/api/admin/users', (req, res) => {
-  const { password, email, grantPremium, days } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Accès refusé" });
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if(data.success) {
+        currentUser = data.user;
+        updateUI();
+        hideModal('authModal');
+        alert("Compte créé avec succès ! Bienvenue !");
+      } else {
+        alert(data.error);
+      }
+    }
 
-  let user = users.find(u => u.email === email);
-  if (!user) return res.status(404).json({ error: "Utilisateur introuvable" });
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      if(!email || !password) return alert("Remplis tous les champs !");
 
-  if (grantPremium) {
-    user.isPremium = true;
-    const expiry = new Date();
-    expiry.setDate(expiry.getDate() + parseInt(days));
-    user.premiumUntil = expiry.toISOString();
-  } else {
-    user.isPremium = false;
-    user.premiumUntil = null;
-  }
-  res.json({ success: true, user });
-});
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if(data.success) {
+        currentUser = data.user;
+        updateUI();
+        hideModal('authModal');
+      } else {
+        alert(data.error);
+      }
+    }
 
-// --- ROUTES ---
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+    function logout() {
+      currentUser = null;
+      updateUI();
+    }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Serveur en ligne sur le port ${PORT}`));
+    // Met à jour l'affichage en haut à droite selon si on est connecté ou non
+    function updateUI() {
+      if (currentUser) {
+        document.getElementById('navAuth').style.display = 'none';
+        document.getElementById('navUser').style.display = 'flex';
+        
+        const status = document.getElementById('userStatus');
+        if (currentUser.isPremium) {
+          status.innerHTML = `👤 ${currentUser.email} <span style="color: #00ff88;">(💎 PREMIUM)</span>`;
+        } else {
+          status.innerHTML = `👤 ${currentUser.email} <span style="color: #aaa;">(Gratuit)</span>`;
+        }
+      } else {
+        document.getElementById('navAuth').style.display = 'block';
+        document.getElementById('navUser').style.display = 'none';
+      }
+    }
+
+    // 5. PETITS UTILITAIRES
+    function showModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function hideModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    // On lance le chargement du catalogue dès que la page s'ouvre !
+    loadMovies();
+  </script>
+</body>
+</html>
