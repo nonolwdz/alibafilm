@@ -164,7 +164,6 @@
     let currentMovie = null;
     let isPreviewEnded = false;
 
-    // --- VÉRIFICATION DU PROFIL AU DÉMARRAGE ---
     async function checkUserSession() {
       const savedUser = localStorage.getItem('alibafilm_user');
       if (!savedUser) {
@@ -217,7 +216,6 @@
     }
 
     function getMovieCardHTML(m) {
-      // Si l'utilisateur a l'abonnement actif, on masque le badge
       const isSubscribed = currentUser && currentUser.isPremium;
       const badgeHTML = isSubscribed ? '' : `<span class="badge ${m.isPremium ? 'premium' : 'free'}">${m.isPremium ? '💎 PREMIUM' : '🟢 GRATUIT'}</span>`;
 
@@ -240,14 +238,18 @@
       const isSubscribed = currentUser && currentUser.isPremium;
       const heroBadgeHTML = isSubscribed ? '' : `<span class="badge ${featured.isPremium ? 'premium' : 'free'}" style="margin-bottom:10px;">${featured.isPremium ? '💎 PREMIUM' : '🟢 NOUVEAUTÉ GRATUITE'}</span>`;
 
+      // Affiche l'extrait uniquement si le film est payant (isPremium)
+      const metaInfoHTML = featured.isPremium 
+        ? `<span>Catégorie : ${featured.category}</span><span>Extrait : ${featured.previewSeconds} sec</span>`
+        : `<span>Catégorie : ${featured.category}</span><span>Film Intégral 100% Gratuit</span>`;
+
       document.getElementById('heroSection').innerHTML = `
         <div class="hero" style="background-image: url('${featured.poster || 'https://via.placeholder.com/1200x600/161622/ffffff?text=Image+Manquante'}');">
           <div class="hero-content">
             ${heroBadgeHTML}
             <div class="hero-title">${featured.title}</div>
             <div class="hero-meta">
-              <span>Catégorie : ${featured.category}</span>
-              <span>Extrait : ${featured.previewSeconds} sec</span>
+              ${metaInfoHTML}
             </div>
             <button class="hero-btn" onclick="openVideo('${featured.id}')">▶ Regarder maintenant</button>
           </div>
@@ -306,6 +308,7 @@
 
     videoPlayer.addEventListener('timeupdate', () => {
       if (!currentMovie) return;
+      // Ne bloque que si le film est payant ET que l'utilisateur n'a pas le premium
       if (currentMovie.isPremium && (!currentUser || !currentUser.isPremium)) {
         if (videoPlayer.currentTime >= currentMovie.previewSeconds) {
           triggerPaywall();
@@ -396,7 +399,6 @@
         document.getElementById('navAuth').style.display = 'block';
         document.getElementById('navUser').style.display = 'none';
       }
-      // Redessine l'interface pour actualiser la présence ou l'absence des badges
       if (movies.length > 0) renderUI();
     }
 
